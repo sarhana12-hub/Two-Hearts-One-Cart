@@ -353,6 +353,9 @@ var store = {
   setItemNote: function(code, id, note){
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), note ? {note: note} : {note: deleteField()});
   },
+  removeFromList: function(code, id){
+    return updateDoc(doc(dbase,"groceryLists",code,"items",id), {status:"suggested", checked:false, note: deleteField()});
+  },
   deleteItem: function(code, id){
     return deleteDoc(doc(dbase,"groceryLists",code,"items",id));
   },
@@ -742,6 +745,8 @@ function editItemSheetHtml(){
     html += '<p class="helper-text">Add stores in Settings to tag items that are only available at specific places.</p>';
   }
   html += '<button class="btn btn-secondary btn-block" id="remove-item-btn">Remove from list</button>';
+  html += '<p class="helper-text" style="margin:6px 0 0;text-align:center;">Stays in Browse so you can add it again later.</p>';
+  html += '<div class="link-row"><button class="link-btn" id="delete-item-btn" style="color:#A32E2E;">Delete this item permanently</button></div>';
   html += '</div></div>';
   return html;
 }
@@ -821,7 +826,12 @@ function bindSheet(){
     });
     var rb = document.getElementById("remove-item-btn");
     if(rb) rb.onclick = function(){
-      store.deleteItem(S.spaceCode, item.id).catch(function(){ showToast("Couldn't remove that item"); });
+      store.removeFromList(S.spaceCode, item.id).catch(function(){ showToast("Couldn't remove that item"); });
+      S.sheet=null; render();
+    };
+    var db2 = document.getElementById("delete-item-btn");
+    if(db2) db2.onclick = function(){
+      store.deleteItem(S.spaceCode, item.id).catch(function(){ showToast("Couldn't delete that item"); });
       S.sheet=null; render();
     };
   }
