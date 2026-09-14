@@ -200,7 +200,35 @@ var STARTER_ITEMS = [
   {name:"Cilantro", emoji:"🌱"},
   {name:"Spinach", emoji:"🥬"},
   {name:"Broccoli", emoji:"🥦"},
-  {name:"Hummus", emoji:"🧆"}
+  {name:"Hummus", emoji:"🧆"},
+  {name:"Tomatoes", emoji:"🍅"},
+  {name:"Cucumber", emoji:"🥒"},
+  {name:"Lemons", emoji:"🍋"},
+  {name:"Limes", emoji:"🟢"},
+  {name:"Strawberries", emoji:"🍓"},
+  {name:"Blueberries", emoji:"🫐"},
+  {name:"Sweet Potatoes", emoji:"🍠"},
+  {name:"Yogurt", emoji:"🥣"},
+  {name:"Greek Yogurt", emoji:"🥣"},
+  {name:"Olive Oil", emoji:"🫒"},
+  {name:"Black Beans", emoji:"🫘"},
+  {name:"Peanut Butter", emoji:"🥜"},
+  {name:"Flour", emoji:"🌾"},
+  {name:"Sugar", emoji:null},
+  {name:"Crackers", emoji:"🍘"},
+  {name:"Chips", emoji:"🥔"},
+  {name:"Tortillas", emoji:"🫓"},
+  {name:"Red Bell Peppers", emoji:"🫑"},
+  {name:"Green Bell Peppers", emoji:"🫑"},
+  {name:"Unexpected Cheddar", emoji:"🧀"},
+  {name:"Paper Towels", emoji:"🧻"},
+  {name:"Toilet Paper", emoji:"🧻"},
+  {name:"Dish Soap", emoji:"🧴"},
+  {name:"Dish Detergent", emoji:"🫧"},
+  {name:"Laundry Detergent", emoji:"🧴"},
+  {name:"Trash Bags", emoji:"🗑️"},
+  {name:"Aluminum Foil", emoji:null},
+  {name:"Ziploc Bags", emoji:null}
 ];
 var EMOJI_MAP = {};
 STARTER_ITEMS.forEach(function(it){ EMOJI_MAP[it.name.toLowerCase()] = it.emoji; });
@@ -439,7 +467,7 @@ function quickAddCandidates(){
       var diff = (b.timesAdded||0)-(a.timesAdded||0);
       return diff !== 0 ? diff : (a.name||"").localeCompare(b.name||"");
     })
-    .slice(0,60);
+    .slice(0,100);
 }
 
 function appHtml(){
