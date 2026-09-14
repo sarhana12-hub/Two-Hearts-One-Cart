@@ -16,7 +16,7 @@
   :root{
     --bg:#FBF8F2; --card:#FFFFFF; --ink:#2B2320; --ink-soft:#8A8078;
     --border:#ECE6DC; --accent:#FF5D7A; --accent-soft:#FFE3E8; --accent-ink:#8C1F37;
-    --done:#B9C9AE; --radius:16px; --shadow:0 1px 2px rgba(43,35,32,.06), 0 6px 20px rgba(43,35,32,.06);
+    --done:#B9C9AE; --checked-green:#3F8557; --radius:16px; --shadow:0 1px 2px rgba(43,35,32,.06), 0 6px 20px rgba(43,35,32,.06);
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -30,6 +30,7 @@
   .shell{max-width:480px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;}
   button{font:inherit;}
   input{font:inherit;}
+  textarea{font:inherit;}
   .btn{border:none;border-radius:999px;padding:13px 20px;font-weight:600;cursor:pointer;transition:transform .1s;}
   .btn:active{transform:scale(.97);}
   .btn-primary{background:var(--accent);color:#fff;}
@@ -96,10 +97,13 @@
   .item-body{flex:1;min-width:0;}
   .item-name{font-weight:600;word-break:break-word;}
   .item-name.done{text-decoration:line-through;color:var(--ink-soft);}
+  .item-name.checked{text-decoration:line-through;color:var(--checked-green);}
+  .item-note{font-size:13px;font-style:italic;color:var(--ink-soft);margin-top:3px;word-break:break-word;}
   .item-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
   .tag-pill{font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent-soft);padding:3px 8px;border-radius:999px;}
   .item-meta{font-size:12px;color:var(--ink-soft);margin-top:3px;}
   .row-action{flex:0 0 auto;}
+  .bottom-bar{padding:10px 18px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--bg);}
 
   /* sheet overlay */
   .sheet-backdrop{position:fixed;inset:0;background:rgba(43,35,32,.4);display:flex;align-items:flex-end;z-index:50;}
@@ -130,7 +134,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
-  collection, serverTimestamp, increment, arrayUnion, arrayRemove, writeBatch
+  collection, serverTimestamp, increment, arrayUnion, arrayRemove, writeBatch, deleteField
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -331,14 +335,23 @@ var store = {
       status:"active", timesAdded: increment(1), lastAddedAt: serverTimestamp()
     });
   },
-  markDone: function(code, id){
-    return updateDoc(doc(dbase,"groceryLists",code,"items",id), {status:"done", lastDoneAt: serverTimestamp()});
+  toggleChecked: function(code, id, checked){
+    return updateDoc(doc(dbase,"groceryLists",code,"items",id), {checked: checked});
   },
-  markActive: function(code, id){
-    return updateDoc(doc(dbase,"groceryLists",code,"items",id), {status:"active"});
+  moveCheckedToHistory: function(code, ids){
+    var batch = writeBatch(dbase);
+    ids.forEach(function(id){
+      batch.update(doc(dbase,"groceryLists",code,"items",id), {
+        status:"done", checked:false, lastDoneAt: serverTimestamp(), note: deleteField()
+      });
+    });
+    return batch.commit();
   },
   setItemTags: function(code, id, tags){
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), {storeTags: tags});
+  },
+  setItemNote: function(code, id, note){
+    return updateDoc(doc(dbase,"groceryLists",code,"items",id), note ? {note: note} : {note: deleteField()});
   },
   deleteItem: function(code, id){
     return deleteDoc(doc(dbase,"groceryLists",code,"items",id));
@@ -393,7 +406,7 @@ function render(){
 function renderPreservingInput(){
   var active = document.activeElement;
   var save = null;
-  if(active && active.tagName==="INPUT" && active.id){
+  if(active && (active.tagName==="INPUT" || active.tagName==="TEXTAREA") && active.id){
     save = {id:active.id, value:active.value, start:active.selectionStart, end:active.selectionEnd};
   }
   render();
@@ -473,7 +486,10 @@ function matchesFilter(it){
 }
 function activeItems(){
   return S.items.filter(function(it){ return it.status==="active" && matchesFilter(it); })
-    .sort(function(a,b){ return (a.name||"").localeCompare(b.name||""); });
+    .sort(function(a,b){
+      var ca = a.checked ? 1 : 0, cb = b.checked ? 1 : 0;
+      return ca !== cb ? ca-cb : (a.name||"").localeCompare(b.name||"");
+    });
 }
 function doneItems(){
   return S.items.filter(function(it){ return it.status==="done" && matchesFilter(it); })
@@ -538,6 +554,10 @@ function appHtml(){
       items.forEach(function(it){ html += itemRowHtml(it, false); });
     }
     html += '</div>';
+    var checkedN = items.filter(function(it){ return it.checked; }).length;
+    if(checkedN){
+      html += '<div class="bottom-bar"><button class="btn btn-primary btn-block" id="move-to-history-btn">Move '+checkedN+' purchased item'+(checkedN===1?"":"s")+' to history</button></div>';
+    }
   } else if(S.view==="browse"){
     var browse = browseCandidates();
     html += '<div class="list" style="padding-top:8px;">';
@@ -566,14 +586,16 @@ function appHtml(){
 
 function itemRowHtml(it, isHistory){
   var tags = (it.storeTags||[]);
+  var checked = !isHistory && !!it.checked;
   var html = '<div class="item-row" data-item="'+escapeHtml(it.id)+'" data-action="'+(isHistory?"restore":"edit")+'">';
   if(isHistory){
     html += '<div class="check-circle done" data-action="restore" data-item="'+escapeHtml(it.id)+'">+</div>';
   } else {
-    html += '<div class="check-circle" data-action="done" data-item="'+escapeHtml(it.id)+'"></div>';
+    html += '<div class="check-circle'+(checked?" done":"")+'" data-action="toggle-check" data-item="'+escapeHtml(it.id)+'">'+(checked?"✓":"")+'</div>';
   }
   html += '<div class="item-body">';
-  html += '<div class="item-name'+(isHistory?" done":"")+'">'+(it.emoji?escapeHtml(it.emoji)+' ':'')+escapeHtml(it.name)+'</div>';
+  html += '<div class="item-name'+(isHistory?" done":"")+(checked?" checked":"")+'">'+(it.emoji?escapeHtml(it.emoji)+' ':'')+escapeHtml(it.name)+'</div>';
+  if(it.note && !isHistory) html += '<div class="item-note">'+escapeHtml(it.note)+'</div>';
   if(tags.length) html += '<div class="item-tags">'+tags.map(function(t){return '<span class="tag-pill">'+escapeHtml(t)+'</span>';}).join("")+'</div>';
   if(isHistory) html += '<div class="item-meta">Bought '+relTime(it.lastDoneAt)+'</div>';
   html += '</div>';
@@ -611,6 +633,10 @@ function bindApp(){
     if(!name) return;
     var key = name.toLowerCase();
     var existing = S.items.find(function(it){ return it.nameKey===key; });
+    if(!existing){
+      var matches = searchSuggestions(name);
+      if(matches.length === 1) existing = matches[0];
+    }
     S.searchQuery = "";
     if(existing){
       if(existing.status==="active"){ showToast(existing.name+" is already on your list"); render(); return; }
@@ -626,9 +652,21 @@ function bindApp(){
   if(addForm) addForm.onsubmit = function(e){ e.preventDefault(); submitNewItem(); };
   if(input) input.oninput = function(){ S.searchQuery = input.value; renderPreservingInput(); };
 
-  document.querySelectorAll('[data-action="done"]').forEach(function(el){
-    el.onclick = function(e){ e.stopPropagation(); store.markDone(S.spaceCode, el.getAttribute("data-item")).catch(function(){ showToast("Couldn't update that item"); }); };
+  document.querySelectorAll('[data-action="toggle-check"]').forEach(function(el){
+    el.onclick = function(e){
+      e.stopPropagation();
+      var id = el.getAttribute("data-item");
+      var item = S.items.find(function(it){ return it.id===id; });
+      store.toggleChecked(S.spaceCode, id, !(item && item.checked)).catch(function(){ showToast("Couldn't update that item"); });
+    };
   });
+  if((b=document.getElementById("move-to-history-btn"))) b.onclick = function(){
+    var ids = S.items.filter(function(it){ return it.status==="active" && it.checked; }).map(function(it){ return it.id; });
+    if(!ids.length) return;
+    store.moveCheckedToHistory(S.spaceCode, ids).then(function(){
+      showToast("Moved "+ids.length+" item"+(ids.length===1?"":"s")+" to history");
+    }).catch(function(){ showToast("Couldn't update your list"); });
+  };
   document.querySelectorAll('[data-action="restore"]').forEach(function(el){
     el.onclick = function(e){ e.stopPropagation(); store.restoreItem(S.spaceCode, el.getAttribute("data-item")).then(function(){ showToast("Added back to your list"); }).catch(function(){ showToast("Couldn't add that item"); }); };
   });
@@ -691,6 +729,9 @@ function editItemSheetHtml(){
   var tags = item.storeTags||[];
   var html = '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
     '<div class="sheet-handle"></div><h2>'+(item.emoji?escapeHtml(item.emoji)+' ':'')+escapeHtml(item.name)+'</h2>';
+  html += '<div class="field"><label for="item-note-input">Note (quantity, brand, etc.)</label>'+
+    '<textarea id="item-note-input" class="text-input" rows="2" placeholder="e.g. two cans, Goya brand" style="resize:none;">'+escapeHtml(item.note||"")+'</textarea></div>'+
+    '<p class="helper-text" style="margin-top:-8px;">Cleared automatically once this is checked off — it won\'t carry over next time.</p>';
   if(stores.length){
     html += '<p class="helper-text">Only available at certain stores? Tag it below.</p><div class="store-list">';
     stores.forEach(function(s){
@@ -704,10 +745,19 @@ function editItemSheetHtml(){
   html += '</div></div>';
   return html;
 }
+function flushNoteIfOpen(){
+  if(S.sheet && S.sheet.type==="editItem"){
+    var noteEl = document.getElementById("item-note-input");
+    var item = S.items.find(function(it){ return it.id===S.sheet.itemId; });
+    if(noteEl && item && noteEl.value !== (item.note||"")){
+      store.setItemNote(S.spaceCode, item.id, noteEl.value.trim()).catch(function(){ showToast("Couldn't save note"); });
+    }
+  }
+}
 function bindSheet(){
   var backdrop = document.getElementById("sheet-backdrop");
   if(backdrop){
-    backdrop.onclick = function(e){ if(e.target===backdrop){ S.sheet=null; render(); } };
+    backdrop.onclick = function(e){ if(e.target===backdrop){ flushNoteIfOpen(); S.sheet=null; render(); } };
   }
   if(S.sheet.type==="settings"){
     var b, input;
@@ -752,6 +802,14 @@ function bindSheet(){
     };
   } else if(S.sheet.type==="editItem"){
     var item = S.items.find(function(it){ return it.id===S.sheet.itemId; });
+    var noteEl = document.getElementById("item-note-input");
+    if(noteEl){
+      noteEl.onblur = function(){
+        if(noteEl.value !== (item.note||"")){
+          store.setItemNote(S.spaceCode, item.id, noteEl.value.trim()).catch(function(){ showToast("Couldn't save note"); });
+        }
+      };
+    }
     document.querySelectorAll("[data-tag]").forEach(function(el){
       el.onclick = function(){
         var tag = el.getAttribute("data-tag");
