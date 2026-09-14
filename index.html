@@ -175,6 +175,14 @@ function genCode(){
   return w+"-"+suf;
 }
 function normCode(s){ return String(s||"").trim().toUpperCase().replace(/\s+/g,""); }
+function shareUrl(code){
+  var base = location.origin + location.pathname.replace(/index\.html$/, "");
+  return base + "?join=" + encodeURIComponent(code);
+}
+var URL_JOIN_CODE = normCode(new URLSearchParams(location.search).get("join") || "");
+if(URL_JOIN_CODE){
+  history.replaceState(null, "", location.origin + location.pathname);
+}
 
 var DEFAULT_STORES = ["Target", "Whole Foods", "Lunds & Byerlys", "Trader Joe's"];
 
@@ -428,12 +436,12 @@ function renderPreservingInput(){
 /* ---------------- entry screen (name + list code) ---------------- */
 function entryHtml(){
   var html = '<div class="onboard">';
-  html += '<div class="onboard-hero"><div class="mark">🛒💗</div><h1>Two Hearts, One Cart</h1><p>One shared grocery list for the two of you.</p></div>';
+  html += '<div class="onboard-hero"><div class="mark">🛒💗</div><h1>Two Hearts, One Cart</h1><p>'+(URL_JOIN_CODE ? "You've been invited to join a list — just add your name below." : "One shared grocery list for the two of you.")+'</p></div>';
   html += '<form id="entry-form">';
   if(!S.me){
     html += '<div class="field"><label for="entry-name">Your name</label><input type="text" id="entry-name" placeholder="e.g. Sam" autocomplete="off" enterkeyhint="next"></div>';
   }
-  html += '<div class="field"><label for="entry-code">List code</label><input type="text" id="entry-code" class="mono" placeholder="e.g. OURLIST" autocapitalize="characters" autocomplete="off" enterkeyhint="done"></div>';
+  html += '<div class="field"><label for="entry-code">List code</label><input type="text" id="entry-code" class="mono" placeholder="e.g. OURLIST" autocapitalize="characters" autocomplete="off" enterkeyhint="done" value="'+escapeHtml(URL_JOIN_CODE||"")+'"></div>';
   html += '<button class="btn btn-primary btn-block" id="entry-go" type="submit">Join list</button>';
   html += '</form>';
   html += '<p class="helper-text" style="margin:14px 0 0;text-align:center;">Make up any code and share it with your partner, or <button class="link-btn" id="entry-generate" style="padding:0;">generate one</button>.</p>';
@@ -789,7 +797,9 @@ function settingsSheetHtml(){
 
   html += '<div class="settings-section"><h3>Your shared list</h3>'+
     '<div class="code-box"><span class="mono">'+escapeHtml(S.spaceCode)+'</span><button class="link-btn" id="copy-code-btn">Copy</button></div>'+
-    '<p class="helper-text" style="margin-bottom:6px;">Share this code so your partner can join the same list.</p>';
+    '<p class="helper-text" style="margin-bottom:10px;">Share this code so your partner can join the same list.</p>'+
+    '<div class="code-box"><span class="mono" style="font-size:13px;word-break:break-all;">'+escapeHtml(shareUrl(S.spaceCode))+'</span><button class="link-btn" id="copy-link-btn" style="flex:0 0 auto;">Copy</button></div>'+
+    '<p class="helper-text" style="margin-bottom:6px;">Or send this link — opening it fills in the code automatically.</p>';
   people.forEach(function(p){ html += '<div class="people-row">👤 '+escapeHtml(p.name)+'</div>'; });
   html += '</div>';
 
@@ -905,6 +915,12 @@ function bindSheet(){
         navigator.clipboard.writeText(code).then(function(){ showToast("Code copied"); }).catch(function(){ showToast(code); });
       } else { showToast(code); }
     };
+    if((b=document.getElementById("copy-link-btn"))) b.onclick = function(){
+      var url = shareUrl(S.spaceCode);
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(url).then(function(){ showToast("Link copied"); }).catch(function(){ showToast(url); });
+      } else { showToast(url); }
+    };
     if((b=document.getElementById("restore-starters-btn"))) b.onclick = function(){
       var existingKeys = S.items.map(function(it){ return it.nameKey; });
       store.addMissingDefaults(S.spaceCode, existingKeys).then(function(added){
@@ -961,7 +977,7 @@ onAuthStateChanged(auth, function(user){
   store.getUserProfile(user.uid).then(function(profile){
     if(profile && profile.displayName) S.me = profile.displayName;
     var last = loadLocalSpace();
-    if(last && S.me){ enterSpace(last); } else { render(); }
+    if(!URL_JOIN_CODE && last && S.me){ enterSpace(last); } else { render(); }
   }).catch(function(){ render(); });
 });
 render();
