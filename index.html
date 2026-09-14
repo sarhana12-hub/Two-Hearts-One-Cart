@@ -280,6 +280,24 @@ var store = {
     });
     return batch.commit();
   },
+  addMissingDefaults: function(code, existingKeys){
+    var missingItems = STARTER_ITEMS.filter(function(it){ return existingKeys.indexOf(it.name.toLowerCase()) === -1; });
+    var work = [updateDoc(doc(dbase,"groceryLists",code), {stores: arrayUnion.apply(null, DEFAULT_STORES)})];
+    if(missingItems.length){
+      var batch = writeBatch(dbase);
+      missingItems.forEach(function(it){
+        var nameKey = it.name.toLowerCase();
+        var ref = doc(dbase,"groceryLists",code,"items",slugify(nameKey));
+        batch.set(ref, {
+          name: it.name, nameKey: nameKey, emoji: it.emoji,
+          storeTags: [], status: "suggested", timesAdded: 0,
+          createdAt: serverTimestamp(), lastAddedAt: null
+        });
+      });
+      work.push(batch.commit());
+    }
+    return Promise.all(work).then(function(){ return missingItems.length; });
+  },
   updateSpace: function(code, patch){ return updateDoc(doc(dbase,"groceryLists",code), patch); },
   subscribeSpace: function(code, cb){
     return onSnapshot(doc(dbase,"groceryLists",code), function(snap){ if(snap.exists()) cb(snap.data()); }, function(){});
@@ -655,6 +673,11 @@ function settingsSheetHtml(){
   html += '</div>';
 
   html += '<div class="settings-section">'+
+    '<button class="btn btn-secondary btn-block" id="restore-starters-btn">Add default stores &amp; new starter items</button>'+
+    '<p class="helper-text" style="margin:6px 0 0;">For lists started before these existed. Safe to tap more than once — never touches anything already on your list.</p>'+
+    '</div>';
+
+  html += '<div class="settings-section">'+
     '<button class="btn btn-secondary btn-block" id="switch-list-btn">Use a different list</button>'+
     '</div>';
 
@@ -715,6 +738,12 @@ function bindSheet(){
       if(navigator.clipboard && navigator.clipboard.writeText){
         navigator.clipboard.writeText(code).then(function(){ showToast("Code copied"); }).catch(function(){ showToast(code); });
       } else { showToast(code); }
+    };
+    if((b=document.getElementById("restore-starters-btn"))) b.onclick = function(){
+      var existingKeys = S.items.map(function(it){ return it.nameKey; });
+      store.addMissingDefaults(S.spaceCode, existingKeys).then(function(added){
+        showToast(added > 0 ? "Added "+added+" new item"+(added===1?"":"s")+" and default stores" : "Already up to date");
+      }).catch(function(){ showToast("Couldn't update — try again"); });
     };
     if((b=document.getElementById("switch-list-btn"))) b.onclick = function(){
       forgetLocalSpace(); teardownSubs();
