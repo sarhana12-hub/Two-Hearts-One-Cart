@@ -126,7 +126,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
-  collection, serverTimestamp, increment, arrayUnion, arrayRemove
+  collection, serverTimestamp, increment, arrayUnion, arrayRemove, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -166,6 +166,44 @@ function genCode(){
   return w+"-"+suf;
 }
 function normCode(s){ return String(s||"").trim().toUpperCase().replace(/\s+/g,""); }
+
+// Starter pack seeded into every brand-new list so quick-add isn't empty on
+// day one. Also doubles as the emoji lookup (by lowercase name) for anything
+// typed later that happens to match one of these names.
+var STARTER_ITEMS = [
+  {name:"Bananas", emoji:"🍌"},
+  {name:"Avocados", emoji:"🥑"},
+  {name:"Milk", emoji:"🥛"},
+  {name:"Cheddar", emoji:"🧀"},
+  {name:"Pepper Jack", emoji:"🧀"},
+  {name:"Colby Jack", emoji:"🧀"},
+  {name:"Tortilla Chips", emoji:"🌽"},
+  {name:"Rice", emoji:"🍚"},
+  {name:"Pasta", emoji:"🍝"},
+  {name:"Apples", emoji:"🍎"},
+  {name:"Red Onion", emoji:"🧅"},
+  {name:"White Onion", emoji:"🧅"},
+  {name:"Garlic", emoji:"🧄"},
+  {name:"Frozen Pizza", emoji:"🍕"},
+  {name:"Fresca", emoji:"🍋"},
+  {name:"Diet Ginger Ale", emoji:"🫚"},
+  {name:"Kefir", emoji:"🥛"},
+  {name:"Butter", emoji:"🧈"},
+  {name:"Ramen", emoji:"🍜"},
+  {name:"Popcorn", emoji:"🍿"},
+  {name:"Shredded Parmesan", emoji:"🧀"},
+  {name:"Mozzarella", emoji:"🧀"},
+  {name:"Bread", emoji:"🍞"},
+  {name:"Ice Cream", emoji:"🍦"},
+  {name:"Carrots", emoji:"🥕"},
+  {name:"Rosemary", emoji:"🌿"},
+  {name:"Cilantro", emoji:"🌱"},
+  {name:"Spinach", emoji:"🥬"},
+  {name:"Broccoli", emoji:"🥦"},
+  {name:"Hummus", emoji:"🧆"}
+];
+var EMOJI_MAP = {};
+STARTER_ITEMS.forEach(function(it){ EMOJI_MAP[it.name.toLowerCase()] = it.emoji; });
 function relTime(iso){
   if(!iso) return "";
   var d = (iso.toDate) ? iso.toDate() : new Date(iso);
@@ -192,8 +230,21 @@ var store = {
     return getDoc(ref).then(function(snap){
       if(snap.exists()) return snap.data();
       var fresh = {stores:[], people:[], createdAt: new Date().toISOString()};
-      return setDoc(ref, fresh).then(function(){ return fresh; });
+      return setDoc(ref, fresh).then(function(){ return store.seedStarterItems(code); }).then(function(){ return fresh; });
     });
+  },
+  seedStarterItems: function(code){
+    var batch = writeBatch(dbase);
+    STARTER_ITEMS.forEach(function(it){
+      var nameKey = it.name.toLowerCase();
+      var ref = doc(dbase,"groceryLists",code,"items",slugify(nameKey));
+      batch.set(ref, {
+        name: it.name, nameKey: nameKey, emoji: it.emoji,
+        storeTags: [], status: "suggested", timesAdded: 0,
+        createdAt: serverTimestamp(), lastAddedAt: null
+      });
+    });
+    return batch.commit();
   },
   updateSpace: function(code, patch){ return updateDoc(doc(dbase,"groceryLists",code), patch); },
   subscribeSpace: function(code, cb){
@@ -210,7 +261,7 @@ var store = {
     var nameKey = String(name||"").trim().toLowerCase();
     var id = slugify(nameKey);
     var ref = doc(dbase,"groceryLists",code,"items",id);
-    return setDoc(ref, {
+    var patch = {
       name: String(name||"").trim(),
       nameKey: nameKey,
       storeTags: storeTags || [],
@@ -219,7 +270,9 @@ var store = {
       addedBy: uid,
       createdAt: serverTimestamp(),
       lastAddedAt: serverTimestamp()
-    }, {merge:true});
+    };
+    if(EMOJI_MAP[nameKey]) patch.emoji = EMOJI_MAP[nameKey];
+    return setDoc(ref, patch, {merge:true});
   },
   restoreItem: function(code, id){
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), {
@@ -382,8 +435,11 @@ function quickAddCandidates(){
   var activeKeys = {};
   S.items.forEach(function(it){ if(it.status==="active") activeKeys[it.nameKey]=true; });
   return S.items.filter(function(it){ return it.status!=="active" && matchesFilter(it) && !activeKeys[it.nameKey]; })
-    .sort(function(a,b){ return (b.timesAdded||0)-(a.timesAdded||0); })
-    .slice(0,8);
+    .sort(function(a,b){
+      var diff = (b.timesAdded||0)-(a.timesAdded||0);
+      return diff !== 0 ? diff : (a.name||"").localeCompare(b.name||"");
+    })
+    .slice(0,60);
 }
 
 function appHtml(){
@@ -409,7 +465,7 @@ function appHtml(){
     if(quick.length){
       html += '<div class="section-label">Quick add</div><div class="chip-row">';
       quick.forEach(function(it){
-        html += '<button class="chip quick" data-quickadd="'+escapeHtml(it.id)+'">+ '+escapeHtml(it.name)+'</button>';
+        html += '<button class="chip quick" data-quickadd="'+escapeHtml(it.id)+'">+ '+(it.emoji?escapeHtml(it.emoji)+' ':'')+escapeHtml(it.name)+'</button>';
       });
       html += '</div>';
     }
@@ -446,7 +502,7 @@ function itemRowHtml(it, isHistory){
     html += '<div class="check-circle" data-action="done" data-item="'+escapeHtml(it.id)+'"></div>';
   }
   html += '<div class="item-body">';
-  html += '<div class="item-name'+(isHistory?" done":"")+'">'+escapeHtml(it.name)+'</div>';
+  html += '<div class="item-name'+(isHistory?" done":"")+'">'+(it.emoji?escapeHtml(it.emoji)+' ':'')+escapeHtml(it.name)+'</div>';
   if(tags.length) html += '<div class="item-tags">'+tags.map(function(t){return '<span class="tag-pill">'+escapeHtml(t)+'</span>';}).join("")+'</div>';
   if(isHistory) html += '<div class="item-meta">Bought '+relTime(it.lastDoneAt)+'</div>';
   html += '</div>';
@@ -552,7 +608,7 @@ function editItemSheetHtml(){
   var stores = storesList();
   var tags = item.storeTags||[];
   var html = '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
-    '<div class="sheet-handle"></div><h2>'+escapeHtml(item.name)+'</h2>';
+    '<div class="sheet-handle"></div><h2>'+(item.emoji?escapeHtml(item.emoji)+' ':'')+escapeHtml(item.name)+'</h2>';
   if(stores.length){
     html += '<p class="helper-text">Only available at certain stores? Tag it below.</p><div class="store-list">';
     stores.forEach(function(s){
