@@ -107,10 +107,10 @@
 
   /* sheet overlay */
   .sheet-backdrop{position:fixed;inset:0;background:rgba(43,35,32,.4);display:flex;align-items:flex-end;z-index:50;}
-  .sheet{background:var(--bg);width:100%;max-width:480px;margin:0 auto;border-radius:20px 20px 0 0;padding:18px 20px calc(20px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;}
+  .sheet{position:relative;background:var(--bg);width:100%;max-width:480px;margin:0 auto;border-radius:20px 20px 0 0;padding:18px 20px calc(20px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;}
   .sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px;}
-  .sheet h2{font-size:18px;margin:0 0 14px;}
-  .sheet-close{position:absolute;}
+  .sheet h2{font-size:18px;margin:0 0 14px;padding-right:30px;}
+  .sheet-close{position:absolute;top:14px;right:14px;font-size:22px;line-height:1;color:var(--ink-soft);}
   .store-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
   .store-tag-toggle{padding:9px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-weight:600;font-size:13px;}
   .store-tag-toggle.on{background:var(--accent);border-color:var(--accent);color:#fff;}
@@ -718,6 +718,7 @@ function settingsSheetHtml(){
   var stores = storesList();
   var people = S.space.people||[];
   var html = '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
+    '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
     '<div class="sheet-handle"></div><h2>Settings</h2>';
 
   html += '<div class="settings-section"><h3>Grocery stores</h3>';
@@ -757,6 +758,7 @@ function editItemSheetHtml(){
   var stores = storesList();
   var tags = item.storeTags||[];
   var html = '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
+    '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
     '<div class="sheet-handle"></div><h2>'+(item.emoji?escapeHtml(item.emoji)+' ':'')+escapeHtml(item.name)+'</h2>';
   html += '<div class="field"><label for="item-note-input">Note (quantity, brand, etc.)</label>'+
     '<textarea id="item-note-input" class="text-input" rows="2" placeholder="e.g. two cans, Goya brand" style="resize:none;">'+escapeHtml(item.note||"")+'</textarea></div>'+
@@ -789,6 +791,10 @@ function bindSheet(){
   var backdrop = document.getElementById("sheet-backdrop");
   if(backdrop){
     backdrop.onclick = function(e){ if(e.target===backdrop){ flushNoteIfOpen(); S.sheet=null; render(); } };
+  }
+  var closeBtn = document.getElementById("sheet-close-btn");
+  if(closeBtn){
+    closeBtn.onclick = function(){ flushNoteIfOpen(); S.sheet=null; render(); };
   }
   if(S.sheet.type==="settings"){
     var b, input;
