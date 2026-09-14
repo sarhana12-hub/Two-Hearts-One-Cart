@@ -303,6 +303,7 @@ var store = {
     return Promise.all(work).then(function(){ return missingItems.length; });
   },
   updateSpace: function(code, patch){ return updateDoc(doc(dbase,"groceryLists",code), patch); },
+  clearHistory: function(code){ return updateDoc(doc(dbase,"groceryLists",code), {historyClearedAt: serverTimestamp()}); },
   subscribeSpace: function(code, cb){
     return onSnapshot(doc(dbase,"groceryLists",code), function(snap){ if(snap.exists()) cb(snap.data()); }, function(){});
   },
@@ -495,12 +496,17 @@ function activeItems(){
     });
 }
 function doneItems(){
-  return S.items.filter(function(it){ return it.status==="done" && matchesFilter(it); })
-    .sort(function(a,b){
-      var ta = a.lastDoneAt && a.lastDoneAt.toMillis ? a.lastDoneAt.toMillis() : 0;
-      var tb = b.lastDoneAt && b.lastDoneAt.toMillis ? b.lastDoneAt.toMillis() : 0;
-      return tb-ta;
-    }).slice(0,60);
+  var cutoff = S.space.historyClearedAt;
+  var cutoffMs = (cutoff && cutoff.toMillis) ? cutoff.toMillis() : 0;
+  return S.items.filter(function(it){
+    if(it.status!=="done" || !matchesFilter(it)) return false;
+    var doneMs = (it.lastDoneAt && it.lastDoneAt.toMillis) ? it.lastDoneAt.toMillis() : 0;
+    return doneMs > cutoffMs;
+  }).sort(function(a,b){
+    var ta = a.lastDoneAt && a.lastDoneAt.toMillis ? a.lastDoneAt.toMillis() : 0;
+    var tb = b.lastDoneAt && b.lastDoneAt.toMillis ? b.lastDoneAt.toMillis() : 0;
+    return tb-ta;
+  }).slice(0,60);
 }
 function browseCandidates(){
   var activeKeys = {};
@@ -510,6 +516,12 @@ function browseCandidates(){
       var diff = (b.timesAdded||0)-(a.timesAdded||0);
       return diff !== 0 ? diff : (a.name||"").localeCompare(b.name||"");
     });
+}
+function favoriteCandidates(){
+  return browseCandidates().filter(function(it){ return (it.timesAdded||0) > 0; }).slice(0,10);
+}
+function browseAlphabetical(){
+  return browseCandidates().slice().sort(function(a,b){ return (a.name||"").localeCompare(b.name||""); });
 }
 function searchSuggestions(query){
   var q = query.trim().toLowerCase();
@@ -562,13 +574,21 @@ function appHtml(){
       html += '<div class="bottom-bar"><button class="btn btn-primary btn-block" id="move-to-history-btn">Move '+checkedN+' purchased item'+(checkedN===1?"":"s")+' to history</button></div>';
     }
   } else if(S.view==="browse"){
-    var browse = browseCandidates();
+    var favorites = favoriteCandidates();
+    var allBrowse = browseAlphabetical();
     html += '<div class="list" style="padding-top:8px;">';
-    if(!browse.length){
+    if(!allBrowse.length){
       html += '<div class="empty-state"><span class="mark">✅</span>'+(S.filterStore ? "Everything for "+escapeHtml(S.filterStore)+" is already on your list." : "Everything's already on your list!")+'</div>';
     } else {
-      html += '<div class="chip-grid">';
-      browse.forEach(function(it){
+      if(favorites.length){
+        html += '<div class="section-label">⭐ Favorites</div><div class="chip-grid" style="padding-bottom:14px;">';
+        favorites.forEach(function(it){
+          html += '<button class="chip quick" data-quickadd="'+escapeHtml(it.id)+'">+ '+(it.emoji?escapeHtml(it.emoji)+' ':'')+escapeHtml(it.name)+'</button>';
+        });
+        html += '</div>';
+      }
+      html += '<div class="section-label">All items</div><div class="chip-grid">';
+      allBrowse.forEach(function(it){
         html += '<button class="chip quick" data-quickadd="'+escapeHtml(it.id)+'">+ '+(it.emoji?escapeHtml(it.emoji)+' ':'')+escapeHtml(it.name)+'</button>';
       });
       html += '</div>';
@@ -576,7 +596,10 @@ function appHtml(){
     html += '</div>';
   } else {
     var done = doneItems();
-    html += '<div class="list" style="padding-top:8px;">';
+    if(done.length){
+      html += '<div style="padding:6px 18px 0;text-align:right;"><button class="link-btn" id="clear-history-btn" style="padding:4px 0;">Clear history</button></div>';
+    }
+    html += '<div class="list" style="padding-top:4px;">';
     if(!done.length){
       html += '<div class="empty-state"><span class="mark">📜</span>Nothing checked off yet.</div>';
     } else {
@@ -669,6 +692,9 @@ function bindApp(){
     store.moveCheckedToHistory(S.spaceCode, ids).then(function(){
       showToast("Moved "+ids.length+" item"+(ids.length===1?"":"s")+" to history");
     }).catch(function(){ showToast("Couldn't update your list"); });
+  };
+  if((b=document.getElementById("clear-history-btn"))) b.onclick = function(){
+    store.clearHistory(S.spaceCode).then(function(){ showToast("History cleared"); }).catch(function(){ showToast("Couldn't clear history"); });
   };
   document.querySelectorAll('[data-action="restore"]').forEach(function(el){
     el.onclick = function(e){ e.stopPropagation(); store.restoreItem(S.spaceCode, el.getAttribute("data-item")).then(function(){ showToast("Added back to your list"); }).catch(function(){ showToast("Couldn't add that item"); }); };
