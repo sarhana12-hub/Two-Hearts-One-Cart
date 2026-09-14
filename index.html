@@ -532,7 +532,10 @@ function searchSuggestions(query){
 
 function appHtml(){
   var html = '<div class="app-header"><div class="app-title"><span class="mark">🛒💗</span>Two Hearts, One Cart</div>'+
-    '<button class="icon-btn" id="settings-btn" aria-label="Settings">⚙️</button></div>';
+    '<div style="display:flex;gap:2px;">'+
+    '<button class="icon-btn" id="help-btn" aria-label="Help">❓</button>'+
+    '<button class="icon-btn" id="settings-btn" aria-label="Settings">⚙️</button>'+
+    '</div></div>';
   html += '<div class="tabs">'+
     '<button class="tab-btn'+(S.view==="list"?" active":"")+'" id="tab-list">List</button>'+
     '<button class="tab-btn'+(S.view==="browse"?" active":"")+'" id="tab-browse">Browse</button>'+
@@ -633,6 +636,7 @@ function itemRowHtml(it, isHistory){
 function bindApp(){
   var b;
   if((b=document.getElementById("settings-btn"))) b.onclick = function(){ S.sheet={type:"settings"}; render(); };
+  if((b=document.getElementById("help-btn"))) b.onclick = function(){ S.sheet={type:"help", tab:S.view}; render(); };
   if((b=document.getElementById("tab-list"))) b.onclick = function(){ S.view="list"; render(); };
   if((b=document.getElementById("tab-browse"))) b.onclick = function(){ S.view="browse"; S.searchQuery=""; render(); };
   if((b=document.getElementById("tab-history"))) b.onclick = function(){ S.view="history"; S.searchQuery=""; render(); };
@@ -713,7 +717,46 @@ function bindApp(){
 function sheetHtml(){
   if(S.sheet.type==="settings") return settingsSheetHtml();
   if(S.sheet.type==="editItem") return editItemSheetHtml();
+  if(S.sheet.type==="help") return helpSheetHtml();
   return "";
+}
+var HELP_TEXT = {
+  list: {
+    title:"How the List tab works",
+    body:[
+      "This is your shared shopping list — anything you or your partner adds shows up here for both of you in real time.",
+      "Search or add a grocery finds matching items from your catalog as you type, so you can tap to add instantly. If nothing matches, hit Add to create a brand new item.",
+      "Tap the circle next to an item to check it off while you shop. Checked items get a green strikethrough and sink to the bottom, but stay visible so you can see what's in your cart.",
+      "Once you're done shopping, tap Move to history to archive everything you checked off.",
+      "Tap an item's name to add a note (quantity, brand, instructions) or tag which stores carry it."
+    ]
+  },
+  browse: {
+    title:"How the Browse tab works",
+    body:[
+      "Browse is your full catalog — every grocery you or your partner have ever added, plus a starter pack of common items.",
+      "⭐ Favorites shows your top 10 most-purchased items, so the things you buy most often are always one tap away.",
+      "Tap anything to add it straight to your List. It'll disappear from Browse until you check it off (or remove it) again.",
+      "Use the store chips above to filter Browse down to just what's carried at one store."
+    ]
+  },
+  history: {
+    title:"How the History tab works",
+    body:[
+      "Everything you've moved here from the List shows up, most recent first.",
+      "Tap the + on any item to add it straight back to your list.",
+      "Clear history hides everything currently shown — it doesn't delete anything, so your Favorites and purchase counts in Browse stay accurate. Anything you check off afterward will show up here again."
+    ]
+  }
+};
+function helpSheetHtml(){
+  var info = HELP_TEXT[S.sheet.tab] || HELP_TEXT.list;
+  var html = '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
+    '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
+    '<div class="sheet-handle"></div><h2>'+escapeHtml(info.title)+'</h2>';
+  info.body.forEach(function(p){ html += '<p class="helper-text">'+escapeHtml(p)+'</p>'; });
+  html += '</div></div>';
+  return html;
 }
 function settingsSheetHtml(){
   var stores = storesList();
