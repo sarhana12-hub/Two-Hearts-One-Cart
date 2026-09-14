@@ -121,8 +121,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
-  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
-  createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail,
+  getAuth, onAuthStateChanged, signInAnonymously,
   setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
@@ -180,24 +179,6 @@ function relTime(iso){
   if(days < 7) return days+"d ago";
   return d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
 }
-function friendlyAuthError(err){
-  var code = (err && err.code) || "";
-  var map = {
-    "auth/email-already-in-use":"That email already has an account — try signing in instead.",
-    "auth/invalid-email":"That doesn't look like a valid email address.",
-    "auth/weak-password":"Password should be at least 6 characters.",
-    "auth/user-not-found":"No account found with that email.",
-    "auth/wrong-password":"Incorrect password.",
-    "auth/invalid-credential":"Incorrect email or password.",
-    "auth/invalid-login-credentials":"Incorrect email or password.",
-    "auth/too-many-requests":"Too many attempts — please wait a bit and try again.",
-    "auth/popup-closed-by-user":"Sign-in was closed before finishing.",
-    "auth/popup-blocked":"Your browser blocked the sign-in popup — allow popups for this site and try again.",
-    "auth/network-request-failed":"Network error — check your connection and try again."
-  };
-  return map[code] || "Something went wrong. Please try again.";
-}
-
 /* ---------------- data layer ---------------- */
 var store = {
   getUserProfile: function(uid){
@@ -267,9 +248,8 @@ var store = {
 
 /* ---------------- state ---------------- */
 var S = {
-  authChecked:false, authUser:null, authMode:"signin", authError:"", authBusy:false,
-  meUid:null, me:null, needsName:false,
-  joinDraft:false,
+  authReady:false,
+  meUid:null, me:null,
   spaceCode:null, loadingSpace:false, space:{stores:[], people:[]}, items:[],
   view:"list", filterStore:null, sheet:null, toast:null
 };
@@ -284,14 +264,10 @@ function forgetLocalSpace(){ try{ localStorage.removeItem("thoc_space"); }catch(
 var app = document.getElementById("app");
 function render(){
   var html;
-  if(!S.authChecked){
+  if(!S.authReady){
     html = '<div class="shell"><div class="loading-screen">Loading…</div></div>';
-  } else if(!S.authUser){
-    html = '<div class="shell">'+authHtml()+'</div>';
-  } else if(S.needsName){
-    html = '<div class="shell">'+nameHtml()+'</div>';
   } else if(!S.spaceCode || S.loadingSpace){
-    html = '<div class="shell">'+ (S.loadingSpace ? '<div class="loading-screen">Opening your list…</div>' : onboardingHtml()) +'</div>';
+    html = '<div class="shell">'+ (S.loadingSpace ? '<div class="loading-screen">Opening your list…</div>' : entryHtml()) +'</div>';
   } else {
     html = '<div class="shell">'+appHtml()+'</div>';
   }
@@ -299,10 +275,8 @@ function render(){
   if(S.sheet) html += sheetHtml();
   app.innerHTML = html;
 
-  if(!S.authChecked) return;
-  if(!S.authUser){ bindAuth(); return; }
-  if(S.needsName){ bindName(); return; }
-  if(!S.spaceCode || S.loadingSpace){ if(!S.loadingSpace) bindOnboarding(); return; }
+  if(!S.authReady) return;
+  if(!S.spaceCode || S.loadingSpace){ if(!S.loadingSpace) bindEntry(); return; }
   bindApp();
   if(S.sheet) bindSheet();
 }
@@ -328,106 +302,39 @@ function renderPreservingInput(){
   }
 }
 
-/* ---------------- auth screens ---------------- */
-function authHtml(){
-  var signUp = S.authMode==="signup";
+/* ---------------- entry screen (name + list code) ---------------- */
+function entryHtml(){
   var html = '<div class="onboard">';
   html += '<div class="onboard-hero"><div class="mark">🛒💗</div><h1>Two Hearts, One Cart</h1><p>One shared grocery list for the two of you.</p></div>';
-  if(S.authError) html += '<div class="err-box">'+escapeHtml(S.authError)+'</div>';
-  html += '<button class="btn btn-secondary btn-block" id="google-btn" '+(S.authBusy?"disabled":"")+'>Continue with Google</button>';
-  html += '<div class="divider-row">or</div>';
-  html += '<form id="auth-form">';
-  html += '<div class="field"><label for="auth-email">Email</label><input type="email" id="auth-email" autocomplete="email" placeholder="you@example.com" enterkeyhint="next"></div>';
-  html += '<div class="field"><label for="auth-password">Password</label><input type="password" id="auth-password" autocomplete="'+(signUp?"new-password":"current-password")+'" placeholder="At least 6 characters" enterkeyhint="done"></div>';
-  html += '<button class="btn btn-primary btn-block" id="auth-submit" type="submit" '+(S.authBusy?"disabled":"")+'>'+(signUp?"Create account":"Sign in")+'</button>';
+  html += '<form id="entry-form">';
+  if(!S.me){
+    html += '<div class="field"><label for="entry-name">Your name</label><input type="text" id="entry-name" placeholder="e.g. Sam" autocomplete="off" enterkeyhint="next"></div>';
+  }
+  html += '<div class="field"><label for="entry-code">List code</label><input type="text" id="entry-code" class="mono" placeholder="e.g. OURLIST" autocapitalize="characters" autocomplete="off" enterkeyhint="done"></div>';
+  html += '<button class="btn btn-primary btn-block" id="entry-go" type="submit">Join list</button>';
   html += '</form>';
-  html += '<div class="link-row"><button class="link-btn" id="auth-toggle">'+(signUp?"Already have an account? Sign in":"New here? Create an account")+'</button></div>';
-  if(!signUp) html += '<div class="link-row"><button class="link-btn" id="auth-forgot" style="color:var(--ink-soft);font-weight:500;">Forgot password?</button></div>';
+  html += '<p class="helper-text" style="margin:14px 0 0;text-align:center;">Make up any code and share it with your partner, or <button class="link-btn" id="entry-generate" style="padding:0;">generate one</button>.</p>';
   html += '</div>';
   return html;
 }
-function bindAuth(){
-  var el;
-  if((el=document.getElementById("google-btn"))) el.onclick = function(){
-    var provider = new GoogleAuthProvider();
-    S.authError=""; S.authBusy=true; render();
-    signInWithPopup(auth, provider).catch(function(err){ S.authBusy=false; S.authError=friendlyAuthError(err); render(); });
-  };
-  if((el=document.getElementById("auth-toggle"))) el.onclick = function(){ S.authMode = S.authMode==="signup"?"signin":"signup"; S.authError=""; render(); };
-  if((el=document.getElementById("auth-forgot"))) el.onclick = function(){
-    var email = (document.getElementById("auth-email")||{}).value || "";
-    if(!email){ showToast("Enter your email first"); return; }
-    sendPasswordResetEmail(auth, email).then(function(){ showToast("Password reset email sent"); }).catch(function(err){ showToast(friendlyAuthError(err)); });
-  };
-  if((el=document.getElementById("auth-form"))) el.onsubmit = function(e){
+function bindEntry(){
+  var nameEl = document.getElementById("entry-name");
+  var codeEl = document.getElementById("entry-code");
+  if(!S.me && nameEl){ setTimeout(function(){ nameEl.focus(); },0); }
+  var b;
+  if((b=document.getElementById("entry-generate"))) b.onclick = function(){ codeEl.value = genCode(); codeEl.focus(); };
+  var form = document.getElementById("entry-form");
+  if(form) form.onsubmit = function(e){
     e.preventDefault();
-    var email = document.getElementById("auth-email").value.trim();
-    var pass = document.getElementById("auth-password").value;
-    if(!email || !pass){ S.authError = "Enter an email and password."; render(); return; }
-    S.authBusy = true; S.authError=""; render();
-    var fn = S.authMode==="signup" ? createUserWithEmailAndPassword : signInWithEmailAndPassword;
-    fn(auth, email, pass).catch(function(err){ S.authBusy=false; S.authError = friendlyAuthError(err); render(); });
-  };
-}
-
-function nameHtml(){
-  var suggested = (S.authUser && S.authUser.displayName) || "";
-  return '<div class="onboard">'+
-    '<div class="onboard-hero" style="margin-top:10vh;"><div class="mark">👋</div><h1 style="font-size:26px;">What should we call you?</h1>'+
-    '<p>This shows up next to items you add.</p></div>'+
-    '<form id="name-form"><div class="field"><label for="name-input">Your name</label><input type="text" id="name-input" value="'+escapeHtml(suggested)+'" placeholder="e.g. Sam" enterkeyhint="done"></div>'+
-    '<button class="btn btn-primary btn-block" id="name-go" type="submit">Continue</button></form>'+
-    '</div>';
-}
-function bindName(){
-  var el;
-  if((el=document.getElementById("name-input"))){ setTimeout(function(){ el.focus(); },0); }
-  if((el=document.getElementById("name-form"))) el.onsubmit = function(e){
-    e.preventDefault();
-    var name = document.getElementById("name-input").value.trim();
-    if(!name){ showToast("Enter a name to continue"); return; }
-    store.saveUserProfile(S.meUid, {displayName:name, email: S.authUser.email||null}).then(function(){
-      S.me = name; S.needsName = false;
-      var last = loadLocalSpace();
-      if(last){ enterSpace(last); } else { render(); }
+    var name = S.me || (nameEl ? nameEl.value.trim() : "");
+    var code = normCode(codeEl.value);
+    if(!name){ showToast("Enter your name"); return; }
+    if(!code){ showToast("Enter a list code"); return; }
+    if(S.me){ enterSpace(code); return; }
+    store.saveUserProfile(S.meUid, {displayName:name}).then(function(){
+      S.me = name; enterSpace(code);
     }).catch(function(){ showToast("Couldn't save your name — try again"); });
   };
-}
-
-/* ---------------- space onboarding ---------------- */
-function onboardingHtml(){
-  if(S.joinDraft){
-    return '<div class="onboard">'+
-      '<div class="back-row"><button class="icon-btn" id="ob-back">← Back</button></div>'+
-      '<h1 style="font-size:24px;margin:0 0 6px;">Join a list</h1>'+
-      '<p class="helper-text">Enter the code your partner shared with you.</p>'+
-      '<form id="join-form"><div class="field"><label for="join-code">List code</label><input type="text" id="join-code" class="mono" placeholder="MILK-7X2" autocapitalize="characters" autocomplete="off" enterkeyhint="done"></div>'+
-      '<button class="btn btn-primary btn-block" id="ob-join-go" type="submit">Join list</button></form>'+
-      '</div>';
-  }
-  return '<div class="onboard">'+
-    '<div class="onboard-hero"><div class="mark">🛒💗</div><h1>Hi, '+escapeHtml(S.me)+'</h1>'+
-    '<p>Start a fresh shared list, or join one your partner already started.</p></div>'+
-    '<div class="onboard-actions">'+
-      '<button class="btn btn-primary btn-block" id="ob-start">Start a new list</button>'+
-      '<button class="btn btn-secondary btn-block" id="ob-join">Join with a code</button>'+
-      '<button class="link-btn" id="ob-signout" style="margin-top:6px;">Sign out</button>'+
-    '</div>'+
-  '</div>';
-}
-function bindOnboarding(){
-  var b;
-  if((b=document.getElementById("ob-start"))) b.onclick = function(){ enterSpace(genCode()); };
-  if((b=document.getElementById("ob-join"))) b.onclick = function(){ S.joinDraft=true; render(); setTimeout(function(){ var e=document.getElementById("join-code"); if(e) e.focus(); },0); };
-  if((b=document.getElementById("ob-back"))) b.onclick = function(){ S.joinDraft=false; render(); };
-  if((b=document.getElementById("join-form"))) b.onsubmit = function(e){
-    e.preventDefault();
-    var code = normCode(document.getElementById("join-code").value);
-    if(!code){ showToast("Enter the list code"); return; }
-    S.joinDraft=false;
-    enterSpace(code);
-  };
-  if((b=document.getElementById("ob-signout"))) b.onclick = doSignOut;
 }
 
 function enterSpace(code){
@@ -447,14 +354,6 @@ function enterSpace(code){
   }).catch(function(){
     S.loadingSpace = false; S.spaceCode = null; forgetLocalSpace();
     showToast("Couldn't open that list — check the code and try again");
-  });
-}
-
-function doSignOut(){
-  teardownSubs();
-  signOut(auth).then(function(){
-    S.spaceCode=null; S.me=null; S.needsName=false; S.joinDraft=false;
-    S.space={stores:[], people:[]}; S.items=[]; S.view="list"; S.filterStore=null;
   });
 }
 
@@ -642,7 +541,6 @@ function settingsSheetHtml(){
 
   html += '<div class="settings-section">'+
     '<button class="btn btn-secondary btn-block" id="switch-list-btn">Use a different list</button>'+
-    '<button class="link-btn" id="sign-out-btn" style="margin-top:8px;">Sign out</button>'+
     '</div>';
 
   html += '</div></div>';
@@ -708,7 +606,6 @@ function bindSheet(){
       S.spaceCode=null; S.space={stores:[],people:[]}; S.items=[]; S.sheet=null; S.filterStore=null; S.view="list";
       render();
     };
-    if((b=document.getElementById("sign-out-btn"))) b.onclick = function(){ S.sheet=null; doSignOut(); };
   } else if(S.sheet.type==="editItem"){
     var item = S.items.find(function(it){ return it.id===S.sheet.itemId; });
     document.querySelectorAll("[data-tag]").forEach(function(el){
@@ -729,19 +626,20 @@ function bindSheet(){
 }
 
 /* ---------------- auth lifecycle ---------------- */
+// No visible sign-in: an anonymous Firebase session runs silently in the
+// background just to satisfy Firestore's "must be signed in" security rules.
+// The only identity the user sees is the name they type on the entry screen.
 onAuthStateChanged(auth, function(user){
-  S.authChecked = true; S.authBusy = false;
-  if(!user){ S.authUser=null; S.meUid=null; S.me=null; render(); return; }
-  S.authUser = user; S.meUid = user.uid;
+  if(!user){
+    signInAnonymously(auth).catch(function(){ showToast("Couldn't connect — check your connection and reload"); });
+    return;
+  }
+  S.authReady = true; S.meUid = user.uid;
   store.getUserProfile(user.uid).then(function(profile){
-    if(profile && profile.displayName){
-      S.me = profile.displayName; S.needsName = false;
-      var last = loadLocalSpace();
-      if(last){ enterSpace(last); } else { render(); }
-    } else {
-      S.needsName = true; render();
-    }
-  }).catch(function(){ S.needsName = true; render(); });
+    if(profile && profile.displayName) S.me = profile.displayName;
+    var last = loadLocalSpace();
+    if(last && S.me){ enterSpace(last); } else { render(); }
+  }).catch(function(){ render(); });
 });
 render();
 
