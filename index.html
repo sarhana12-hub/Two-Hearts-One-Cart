@@ -28,7 +28,8 @@
     padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
   }
   .shell{max-width:480px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;}
-  button{font:inherit;}
+  button{font:inherit;touch-action:manipulation;}
+  .check-circle,.item-row{touch-action:manipulation;}
   input{font:inherit;}
   textarea{font:inherit;}
   .btn{border:none;border-radius:999px;padding:13px 20px;font-weight:600;cursor:pointer;transition:transform .1s;}
