@@ -76,7 +76,11 @@
   .chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
   .chip.quick{background:var(--accent-soft);border-color:var(--accent-soft);color:var(--accent-ink);}
   .chip.quick:active{transform:scale(.96);}
+  .chip-grid{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 90px;}
   .section-label{padding:6px 18px 4px;font-size:12px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px;}
+  .suggest-list{display:flex;flex-direction:column;gap:6px;padding:0 18px 12px;}
+  .suggest-row{text-align:left;padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--ink);font-weight:600;font-size:14px;cursor:pointer;}
+  .suggest-row:active{background:var(--accent-soft);border-color:var(--accent-soft);}
 
   .add-row{display:flex;gap:8px;padding:6px 18px 12px;}
   .add-row input{flex:1;}
@@ -166,6 +170,8 @@ function genCode(){
   return w+"-"+suf;
 }
 function normCode(s){ return String(s||"").trim().toUpperCase().replace(/\s+/g,""); }
+
+var DEFAULT_STORES = ["Target", "Whole Foods", "Lunds & Byerly", "Trader Joe's"];
 
 // Starter pack seeded into every brand-new list so quick-add isn't empty on
 // day one. Also doubles as the emoji lookup (by lowercase name) for anything
@@ -257,7 +263,7 @@ var store = {
     var ref = doc(dbase,"groceryLists",code);
     return getDoc(ref).then(function(snap){
       if(snap.exists()) return snap.data();
-      var fresh = {stores:[], people:[], createdAt: new Date().toISOString()};
+      var fresh = {stores: DEFAULT_STORES.slice(), people:[], createdAt: new Date().toISOString()};
       return setDoc(ref, fresh).then(function(){ return store.seedStarterItems(code); }).then(function(){ return fresh; });
     });
   },
@@ -332,7 +338,7 @@ var S = {
   authReady:false,
   meUid:null, me:null,
   spaceCode:null, loadingSpace:false, space:{stores:[], people:[]}, items:[],
-  view:"list", filterStore:null, sheet:null, toast:null
+  view:"list", filterStore:null, searchQuery:"", sheet:null, toast:null
 };
 var unsubs = [];
 function teardownSubs(){ unsubs.forEach(function(u){ try{u();}catch(e){} }); unsubs=[]; }
@@ -459,15 +465,19 @@ function doneItems(){
       return tb-ta;
     }).slice(0,60);
 }
-function quickAddCandidates(){
+function browseCandidates(){
   var activeKeys = {};
   S.items.forEach(function(it){ if(it.status==="active") activeKeys[it.nameKey]=true; });
   return S.items.filter(function(it){ return it.status!=="active" && matchesFilter(it) && !activeKeys[it.nameKey]; })
     .sort(function(a,b){
       var diff = (b.timesAdded||0)-(a.timesAdded||0);
       return diff !== 0 ? diff : (a.name||"").localeCompare(b.name||"");
-    })
-    .slice(0,100);
+    });
+}
+function searchSuggestions(query){
+  var q = query.trim().toLowerCase();
+  if(!q) return [];
+  return browseCandidates().filter(function(it){ return it.name.toLowerCase().indexOf(q) !== -1; }).slice(0,8);
 }
 
 function appHtml(){
@@ -475,6 +485,7 @@ function appHtml(){
     '<button class="icon-btn" id="settings-btn" aria-label="Settings">⚙️</button></div>';
   html += '<div class="tabs">'+
     '<button class="tab-btn'+(S.view==="list"?" active":"")+'" id="tab-list">List</button>'+
+    '<button class="tab-btn'+(S.view==="browse"?" active":"")+'" id="tab-browse">Browse</button>'+
     '<button class="tab-btn'+(S.view==="history"?" active":"")+'" id="tab-history">History</button>'+
     '</div>';
 
@@ -489,23 +500,37 @@ function appHtml(){
   }
 
   if(S.view==="list"){
-    var quick = quickAddCandidates();
-    if(quick.length){
-      html += '<div class="section-label">Quick add</div><div class="chip-row">';
-      quick.forEach(function(it){
-        html += '<button class="chip quick" data-quickadd="'+escapeHtml(it.id)+'">+ '+(it.emoji?escapeHtml(it.emoji)+' ':'')+escapeHtml(it.name)+'</button>';
+    html += '<form class="add-row" id="add-item-form"><input type="text" id="new-item-input" class="text-input" placeholder="Search or add a grocery…" autocomplete="off" enterkeyhint="done" value="'+escapeHtml(S.searchQuery||"")+'">'+
+      '<button class="btn btn-primary" id="add-item-btn" type="submit">Add</button></form>';
+
+    var suggestions = searchSuggestions(S.searchQuery||"");
+    if(suggestions.length){
+      html += '<div class="suggest-list">';
+      suggestions.forEach(function(it){
+        html += '<button class="suggest-row" data-quickadd="'+escapeHtml(it.id)+'">'+(it.emoji?escapeHtml(it.emoji)+' ':'')+escapeHtml(it.name)+'</button>';
       });
       html += '</div>';
     }
-    html += '<form class="add-row" id="add-item-form"><input type="text" id="new-item-input" class="text-input" placeholder="Add a grocery…" autocomplete="off" enterkeyhint="done">'+
-      '<button class="btn btn-primary" id="add-item-btn" type="submit">Add</button></form>';
 
     var items = activeItems();
     html += '<div class="list">';
     if(!items.length){
-      html += '<div class="empty-state"><span class="mark">🧺</span>'+(S.filterStore ? "Nothing tagged for "+escapeHtml(S.filterStore)+" right now." : "Your list is empty. Add something above!")+'</div>';
+      html += '<div class="empty-state"><span class="mark">🧺</span>'+(S.filterStore ? "Nothing tagged for "+escapeHtml(S.filterStore)+" right now." : "Your list is empty. Search above or browse common items!")+'</div>';
     } else {
       items.forEach(function(it){ html += itemRowHtml(it, false); });
+    }
+    html += '</div>';
+  } else if(S.view==="browse"){
+    var browse = browseCandidates();
+    html += '<div class="list" style="padding-top:8px;">';
+    if(!browse.length){
+      html += '<div class="empty-state"><span class="mark">✅</span>'+(S.filterStore ? "Everything for "+escapeHtml(S.filterStore)+" is already on your list." : "Everything's already on your list!")+'</div>';
+    } else {
+      html += '<div class="chip-grid">';
+      browse.forEach(function(it){
+        html += '<button class="chip quick" data-quickadd="'+escapeHtml(it.id)+'">+ '+(it.emoji?escapeHtml(it.emoji)+' ':'')+escapeHtml(it.name)+'</button>';
+      });
+      html += '</div>';
     }
     html += '</div>';
   } else {
@@ -542,7 +567,8 @@ function bindApp(){
   var b;
   if((b=document.getElementById("settings-btn"))) b.onclick = function(){ S.sheet={type:"settings"}; render(); };
   if((b=document.getElementById("tab-list"))) b.onclick = function(){ S.view="list"; render(); };
-  if((b=document.getElementById("tab-history"))) b.onclick = function(){ S.view="history"; render(); };
+  if((b=document.getElementById("tab-browse"))) b.onclick = function(){ S.view="browse"; S.searchQuery=""; render(); };
+  if((b=document.getElementById("tab-history"))) b.onclick = function(){ S.view="history"; S.searchQuery=""; render(); };
 
   document.querySelectorAll("[data-store]").forEach(function(chip){
     chip.onclick = function(){
@@ -555,6 +581,9 @@ function bindApp(){
     chip.onclick = function(){
       var id = chip.getAttribute("data-quickadd");
       store.restoreItem(S.spaceCode, id).catch(function(){ showToast("Couldn't add that item"); });
+      S.searchQuery = "";
+      render();
+      setTimeout(function(){ var el = document.getElementById("new-item-input"); if(el) el.focus(); },0);
     };
   });
 
@@ -564,7 +593,7 @@ function bindApp(){
     if(!name) return;
     var key = name.toLowerCase();
     var existing = S.items.find(function(it){ return it.nameKey===key; });
-    input.value="";
+    S.searchQuery = "";
     if(existing){
       if(existing.status==="active"){ showToast(existing.name+" is already on your list"); render(); return; }
       store.restoreItem(S.spaceCode, existing.id).catch(function(){ showToast("Couldn't add that item"); });
@@ -573,9 +602,11 @@ function bindApp(){
       store.createOrRestoreItem(S.spaceCode, name, tags, S.meUid).catch(function(){ showToast("Couldn't add that item"); });
     }
     render();
+    setTimeout(function(){ var el = document.getElementById("new-item-input"); if(el) el.focus(); },0);
   }
   var addForm = document.getElementById("add-item-form");
   if(addForm) addForm.onsubmit = function(e){ e.preventDefault(); submitNewItem(); };
+  if(input) input.oninput = function(){ S.searchQuery = input.value; renderPreservingInput(); };
 
   document.querySelectorAll('[data-action="done"]').forEach(function(el){
     el.onclick = function(e){ e.stopPropagation(); store.markDone(S.spaceCode, el.getAttribute("data-item")).catch(function(){ showToast("Couldn't update that item"); }); };
