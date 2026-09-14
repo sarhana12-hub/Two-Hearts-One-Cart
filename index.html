@@ -264,6 +264,10 @@ function relTime(iso){
   if(days < 7) return days+"d ago";
   return d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
 }
+function personName(uid){
+  var p = (S.space.people||[]).find(function(x){ return x.uid===uid; });
+  return p ? p.name : null;
+}
 /* ---------------- data layer ---------------- */
 var store = {
   getUserProfile: function(uid){
@@ -340,9 +344,9 @@ var store = {
     if(EMOJI_MAP[nameKey]) patch.emoji = EMOJI_MAP[nameKey];
     return setDoc(ref, patch, {merge:true});
   },
-  restoreItem: function(code, id){
+  restoreItem: function(code, id, uid){
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), {
-      status:"active", timesAdded: increment(1), lastAddedAt: serverTimestamp()
+      status:"active", timesAdded: increment(1), lastAddedAt: serverTimestamp(), addedBy: uid
     });
   },
   toggleChecked: function(code, id, checked){
@@ -659,7 +663,7 @@ function bindApp(){
   document.querySelectorAll("[data-quickadd]").forEach(function(chip){
     chip.onclick = function(){
       var id = chip.getAttribute("data-quickadd");
-      store.restoreItem(S.spaceCode, id).catch(function(){ showToast("Couldn't add that item"); });
+      store.restoreItem(S.spaceCode, id, S.meUid).catch(function(){ showToast("Couldn't add that item"); });
       S.searchQuery = "";
       render();
       setTimeout(function(){ var el = document.getElementById("new-item-input"); if(el) el.focus(); },0);
@@ -679,7 +683,7 @@ function bindApp(){
     S.searchQuery = "";
     if(existing){
       if(existing.status==="active"){ showToast(existing.name+" is already on your list"); render(); return; }
-      store.restoreItem(S.spaceCode, existing.id).catch(function(){ showToast("Couldn't add that item"); });
+      store.restoreItem(S.spaceCode, existing.id, S.meUid).catch(function(){ showToast("Couldn't add that item"); });
     } else {
       var tags = S.filterStore ? [S.filterStore] : [];
       store.createOrRestoreItem(S.spaceCode, name, tags, S.meUid).catch(function(){ showToast("Couldn't add that item"); });
@@ -710,7 +714,7 @@ function bindApp(){
     store.clearHistory(S.spaceCode).then(function(){ showToast("History cleared"); }).catch(function(){ showToast("Couldn't clear history"); });
   };
   document.querySelectorAll('[data-action="restore"]').forEach(function(el){
-    el.onclick = function(e){ e.stopPropagation(); store.restoreItem(S.spaceCode, el.getAttribute("data-item")).then(function(){ showToast("Added back to your list"); }).catch(function(){ showToast("Couldn't add that item"); }); };
+    el.onclick = function(e){ e.stopPropagation(); store.restoreItem(S.spaceCode, el.getAttribute("data-item"), S.meUid).then(function(){ showToast("Added back to your list"); }).catch(function(){ showToast("Couldn't add that item"); }); };
   });
   document.querySelectorAll('.item-row[data-action="edit"]').forEach(function(row){
     row.onclick = function(){
@@ -838,6 +842,13 @@ function editItemSheetHtml(){
   html += '<button class="btn btn-secondary btn-block" id="remove-item-btn">Remove from list</button>';
   html += '<p class="helper-text" style="margin:6px 0 0;text-align:center;">Stays in Browse so you can add it again later.</p>';
   html += '<div class="link-row"><button class="link-btn" id="delete-item-btn" style="color:#A32E2E;">Delete this item permanently</button></div>';
+  var addedWhen = relTime(item.lastAddedAt);
+  var addedName = personName(item.addedBy);
+  if(addedWhen){
+    html += '<p class="item-meta" style="text-align:center;border-top:1px solid var(--border);margin-top:16px;padding-top:12px;">'+
+      (addedName ? 'Added by '+escapeHtml(addedName)+' · '+escapeHtml(addedWhen) : 'Added '+escapeHtml(addedWhen))+
+      '</p>';
+  }
   html += '</div></div>';
   return html;
 }
