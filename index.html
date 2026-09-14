@@ -176,7 +176,7 @@ function genCode(){
 }
 function normCode(s){ return String(s||"").trim().toUpperCase().replace(/\s+/g,""); }
 
-var DEFAULT_STORES = ["Target", "Whole Foods", "Lunds & Byerly", "Trader Joe's"];
+var DEFAULT_STORES = ["Target", "Whole Foods", "Lunds & Byerlys", "Trader Joe's"];
 
 // Starter pack seeded into every brand-new list so quick-add isn't empty on
 // day one. Also doubles as the emoji lookup (by lowercase name) for anything
@@ -374,7 +374,7 @@ var S = {
   authReady:false,
   meUid:null, me:null,
   spaceCode:null, loadingSpace:false, space:{stores:[], people:[]}, items:[],
-  view:"list", filterStore:null, searchQuery:"", sheet:null, toast:null
+  view:"list", filterStore:null, searchQuery:"", sheet:null, toast:null, renamingStore:null
 };
 var unsubs = [];
 function teardownSubs(){ unsubs.forEach(function(u){ try{u();}catch(e){} }); unsubs=[]; }
@@ -768,8 +768,17 @@ function settingsSheetHtml(){
   html += '<div class="settings-section"><h3>Grocery stores</h3>';
   if(stores.length){
     stores.forEach(function(s){
-      html += '<div class="store-manage-row"><span>'+escapeHtml(s)+'</span>'+
-        '<button class="icon-btn" data-remove-store="'+escapeHtml(s)+'" aria-label="Remove">🗑️</button></div>';
+      if(S.renamingStore===s){
+        html += '<form class="store-manage-row" id="rename-store-form" data-old-name="'+escapeHtml(s)+'" style="gap:8px;">'+
+          '<input type="text" id="rename-store-input" class="text-input" value="'+escapeHtml(s)+'" style="flex:1;" autocomplete="off">'+
+          '<button class="icon-btn" type="submit" aria-label="Save">✓</button>'+
+          '<button class="icon-btn" id="cancel-rename-btn" type="button" aria-label="Cancel">✕</button>'+
+          '</form>';
+      } else {
+        html += '<div class="store-manage-row"><span>'+escapeHtml(s)+'</span><div>'+
+          '<button class="icon-btn" data-rename-store="'+escapeHtml(s)+'" aria-label="Rename">✏️</button>'+
+          '<button class="icon-btn" data-remove-store="'+escapeHtml(s)+'" aria-label="Remove">🗑️</button></div></div>';
+      }
     });
   } else {
     html += '<p class="helper-text" style="margin-bottom:10px;">No stores yet. Add ones like Costco or Trader Joe\'s so you can tag items that are only found there.</p>';
@@ -852,6 +861,32 @@ function bindSheet(){
         if(S.filterStore===name){ S.filterStore=null; }
       };
     });
+    document.querySelectorAll("[data-rename-store]").forEach(function(el){
+      el.onclick = function(){ S.renamingStore = el.getAttribute("data-rename-store"); render(); setTimeout(function(){ var e=document.getElementById("rename-store-input"); if(e){ e.focus(); e.select(); } },0); };
+    });
+    if((b=document.getElementById("cancel-rename-btn"))) b.onclick = function(){ S.renamingStore=null; render(); };
+    var renameForm = document.getElementById("rename-store-form");
+    if(renameForm){
+      var renameOldName = renameForm.getAttribute("data-old-name");
+      renameForm.onsubmit = function(e){
+        e.preventDefault();
+        var oldName = renameOldName;
+        var newName = document.getElementById("rename-store-input").value.trim();
+        if(!newName || newName===oldName){ S.renamingStore=null; render(); return; }
+        var exists = storesList().some(function(st){ return st.toLowerCase()===newName.toLowerCase() && st!==oldName; });
+        if(exists){ showToast("That store name is already in use"); return; }
+        var newStores = storesList().map(function(st){ return st===oldName ? newName : st; });
+        var work = [store.updateSpace(S.spaceCode, {stores: newStores})];
+        S.items.filter(function(it){ return (it.storeTags||[]).indexOf(oldName) !== -1; }).forEach(function(it){
+          var newTags = it.storeTags.map(function(t){ return t===oldName ? newName : t; });
+          work.push(store.setItemTags(S.spaceCode, it.id, newTags));
+        });
+        Promise.all(work).catch(function(){ showToast("Couldn't rename that store"); });
+        if(S.filterStore===oldName){ S.filterStore=newName; }
+        S.renamingStore=null;
+        render();
+      };
+    }
     if((input=document.getElementById("new-store-input"))){
       var submitStore = function(){
         var name = input.value.trim();
