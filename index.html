@@ -68,6 +68,7 @@
   .app-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 10px;}
   .app-title{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:700;}
   .app-title .mark{font-size:22px;}
+  .presence-banner{margin:0 18px 10px;padding:8px 12px;border-radius:12px;background:var(--accent-soft);color:var(--accent-ink);font-size:13px;font-weight:600;}
   .tabs{display:flex;gap:6px;padding:0 18px 10px;}
   .tab-btn{flex:1;padding:10px 0;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--ink-soft);font-weight:600;cursor:pointer;}
   .tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
@@ -268,6 +269,72 @@ function personName(uid){
   var p = (S.space.people||[]).find(function(x){ return x.uid===uid; });
   return p ? p.name : null;
 }
+
+/* ---------------- barcode scan -> product photo ---------------- */
+// Loaded on demand (only when someone actually scans) rather than up front,
+// since most visits never touch this and the library is a few hundred KB.
+var zxingLoadPromise = null;
+function loadZxing(){
+  if(window.ZXing) return Promise.resolve();
+  if(zxingLoadPromise) return zxingLoadPromise;
+  zxingLoadPromise = new Promise(function(resolve, reject){
+    var s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js";
+    s.onload = function(){ resolve(); };
+    s.onerror = function(){ zxingLoadPromise = null; reject(new Error("load failed")); };
+    document.head.appendChild(s);
+  });
+  return zxingLoadPromise;
+}
+var activeScanReader = null;
+function stopActiveScan(){
+  if(activeScanReader){ try{ activeScanReader.reset(); }catch(e){} activeScanReader = null; }
+}
+function startBarcodeScan(itemId){
+  var statusEl = document.getElementById("scan-status");
+  function setStatus(msg){ if((statusEl = document.getElementById("scan-status"))) statusEl.textContent = msg; }
+  loadZxing().then(function(){
+    if(!(S.sheet && S.sheet.type==="scan")) return;
+    var reader = new window.ZXing.BrowserMultiFormatReader();
+    activeScanReader = reader;
+    var pickDevice = reader.listVideoInputDevices().catch(function(){ return []; });
+    return pickDevice.then(function(devices){
+      var rear = devices.find(function(d){ return /back|rear|environment/i.test(d.label||""); });
+      var deviceId = rear ? rear.deviceId : (devices.length ? devices[devices.length-1].deviceId : undefined);
+      return reader.decodeOnceFromVideoDevice(deviceId, "scan-video");
+    }).then(function(result){
+      stopActiveScan();
+      var code = result.getText();
+      setStatus("Looking up "+code+"…");
+      return fetch("https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(code)+".json")
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          if(!data || data.status !== 1){ throw new Error("not_found"); }
+          var img = data.product.image_front_url || data.product.image_url;
+          if(!img){ throw new Error("no_image"); }
+          return store.setItemNoteImage(S.spaceCode, itemId, img);
+        });
+    }).then(function(){
+      showToast("Photo added");
+      S.sheet = {type:"editItem", itemId: itemId};
+      render();
+    }).catch(function(err){
+      stopActiveScan();
+      var msg = "Couldn't get a photo for that item";
+      if(err && err.message==="not_found") msg = "That barcode isn't in the product database";
+      else if(err && err.message==="no_image") msg = "Found the product, but no photo is available";
+      else if(err && err.name==="NotAllowedError") msg = "Camera access denied — check your browser settings";
+      showToast(msg);
+      S.sheet = {type:"editItem", itemId: itemId};
+      render();
+    });
+  }).catch(function(){
+    showToast("Couldn't load the scanner — check your connection");
+    S.sheet = {type:"editItem", itemId: itemId};
+    render();
+  });
+}
+
 /* ---------------- data layer ---------------- */
 var store = {
   getUserProfile: function(uid){
@@ -356,7 +423,7 @@ var store = {
     var batch = writeBatch(dbase);
     ids.forEach(function(id){
       batch.update(doc(dbase,"groceryLists",code,"items",id), {
-        status:"done", checked:false, lastDoneAt: serverTimestamp(), note: deleteField()
+        status:"done", checked:false, lastDoneAt: serverTimestamp(), note: deleteField(), noteImage: deleteField()
       });
     });
     return batch.commit();
@@ -367,8 +434,11 @@ var store = {
   setItemNote: function(code, id, note){
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), note ? {note: note} : {note: deleteField()});
   },
+  setItemNoteImage: function(code, id, url){
+    return updateDoc(doc(dbase,"groceryLists",code,"items",id), url ? {noteImage: url} : {noteImage: deleteField()});
+  },
   removeFromList: function(code, id){
-    return updateDoc(doc(dbase,"groceryLists",code,"items",id), {status:"suggested", checked:false, note: deleteField()});
+    return updateDoc(doc(dbase,"groceryLists",code,"items",id), {status:"suggested", checked:false, note: deleteField(), noteImage: deleteField()});
   },
   deleteItem: function(code, id){
     return deleteDoc(doc(dbase,"groceryLists",code,"items",id));
@@ -378,6 +448,16 @@ var store = {
   },
   removeStore: function(code, name){
     return updateDoc(doc(dbase,"groceryLists",code), {stores: arrayRemove(name)});
+  },
+  updatePresence: function(code, uid, name){
+    return setDoc(doc(dbase,"groceryLists",code,"presence",uid), {name:name, lastActive: serverTimestamp()}, {merge:true});
+  },
+  subscribePresence: function(code, cb){
+    return onSnapshot(collection(dbase,"groceryLists",code,"presence"), function(snap){
+      var out=[];
+      snap.forEach(function(d){ out.push(Object.assign({uid:d.id}, d.data())); });
+      cb(out);
+    }, function(){});
   }
 };
 
@@ -386,10 +466,41 @@ var S = {
   authReady:false,
   meUid:null, me:null,
   spaceCode:null, loadingSpace:false, space:{stores:[], people:[]}, items:[],
-  view:"list", filterStore:null, searchQuery:"", sheet:null, toast:null, renamingStore:null
+  view:"list", filterStore:null, searchQuery:"", sheet:null, toast:null, renamingStore:null,
+  presence:[]
 };
 var unsubs = [];
-function teardownSubs(){ unsubs.forEach(function(u){ try{u();}catch(e){} }); unsubs=[]; }
+function teardownSubs(){ unsubs.forEach(function(u){ try{u();}catch(e){} }); unsubs=[]; stopPresenceHeartbeat(); }
+
+// Presence: a lightweight per-person heartbeat doc so partners can see when
+// each other has the list open right now. Piggybacks the same interval to
+// also re-render, since "is that heartbeat now stale" only changes with time,
+// not with any Firestore event we'd otherwise react to.
+var presenceInterval = null;
+function presenceBeat(){
+  if(S.spaceCode && S.meUid && document.visibilityState==="visible"){
+    store.updatePresence(S.spaceCode, S.meUid, S.me).catch(function(){});
+  }
+  renderPreservingInput();
+}
+function startPresenceHeartbeat(){
+  stopPresenceHeartbeat();
+  presenceBeat();
+  presenceInterval = setInterval(presenceBeat, 25000);
+  document.addEventListener("visibilitychange", presenceBeat);
+}
+function stopPresenceHeartbeat(){
+  if(presenceInterval){ clearInterval(presenceInterval); presenceInterval=null; }
+  document.removeEventListener("visibilitychange", presenceBeat);
+}
+function activePartners(){
+  var now = Date.now();
+  return S.presence.filter(function(p){
+    if(p.uid===S.meUid) return false;
+    var ms = (p.lastActive && p.lastActive.toMillis) ? p.lastActive.toMillis() : 0;
+    return (now-ms) < 90000;
+  });
+}
 
 function persistSpace(){ try{ localStorage.setItem("thoc_space", S.spaceCode||""); }catch(e){} }
 function loadLocalSpace(){ try{ return localStorage.getItem("thoc_space")||null; }catch(e){ return null; } }
@@ -485,6 +596,8 @@ function enterSpace(code){
     }
     unsubs.push(store.subscribeSpace(code, function(sp){ S.space = sp; renderPreservingInput(); }));
     unsubs.push(store.subscribeItems(code, function(items){ S.items = items; renderPreservingInput(); }));
+    unsubs.push(store.subscribePresence(code, function(list){ S.presence = list; renderPreservingInput(); }));
+    startPresenceHeartbeat();
     render();
   }).catch(function(){
     S.loadingSpace = false; S.spaceCode = null; forgetLocalSpace();
@@ -548,6 +661,10 @@ function appHtml(){
     '<button class="icon-btn" id="help-btn" aria-label="Help">❓</button>'+
     '<button class="icon-btn" id="settings-btn" aria-label="Settings">⚙️</button>'+
     '</div></div>';
+  var partners = activePartners();
+  if(partners.length){
+    html += '<div class="presence-banner">🛒 '+partners.map(function(p){ return escapeHtml(p.name||"Your partner"); }).join(" & ")+' shopping now</div>';
+  }
   html += '<div class="tabs">'+
     '<button class="tab-btn'+(S.view==="list"?" active":"")+'" id="tab-list">List</button>'+
     '<button class="tab-btn'+(S.view==="browse"?" active":"")+'" id="tab-browse">Browse</button>'+
@@ -730,7 +847,19 @@ function sheetHtml(){
   if(S.sheet.type==="settings") return settingsSheetHtml();
   if(S.sheet.type==="editItem") return editItemSheetHtml();
   if(S.sheet.type==="help") return helpSheetHtml();
+  if(S.sheet.type==="scan") return scanSheetHtml();
   return "";
+}
+function scanSheetHtml(){
+  return '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
+    '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
+    '<div class="sheet-handle"></div><h2>Scan a barcode</h2>'+
+    '<div style="background:#000;border-radius:12px;overflow:hidden;aspect-ratio:4/3;margin-bottom:12px;">'+
+      '<video id="scan-video" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>'+
+    '</div>'+
+    '<p class="helper-text" id="scan-status" style="text-align:center;">Point your camera at a barcode.</p>'+
+    '<button class="btn btn-secondary btn-block" id="scan-cancel-btn">Cancel</button>'+
+    '</div></div>';
 }
 var HELP_TEXT = {
   list: {
@@ -741,7 +870,9 @@ var HELP_TEXT = {
       "Tap the circle next to an item to check it off while you shop. Checked items get a green strikethrough and sink to the bottom, but stay visible so you can see what's in your cart.",
       "Once you're done shopping, tap Move to history to archive everything you checked off.",
       "Tap an item's name to add a note (quantity, brand, instructions) or tag which stores carry it. Only tag a store if the item is exclusive to it — an untagged item is assumed to be carried everywhere, so it'll keep showing up no matter which store filter is selected.",
-      "The bottom of that panel also shows who added the item and when, so you can tell at a glance whether it's still worth buying or just stale leftover."
+      "From that same panel, tap Scan barcode for a photo to point your camera at a product's barcode and pull in a picture of exactly that item — handy for matching a specific brand. Like the note, it clears once the item's checked off.",
+      "The bottom of that panel also shows who added the item and when, so you can tell at a glance whether it's still worth buying or just stale leftover.",
+      "If your partner has the list open at the same time, you'll see a banner up top letting you know they're shopping right now."
     ]
   },
   browse: {
@@ -829,8 +960,16 @@ function editItemSheetHtml(){
     '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
     '<div class="sheet-handle"></div><h2>'+(item.emoji?escapeHtml(item.emoji)+' ':'')+escapeHtml(item.name)+'</h2>';
   html += '<div class="field"><label for="item-note-input">Note (quantity, brand, etc.)</label>'+
-    '<textarea id="item-note-input" class="text-input" rows="2" placeholder="e.g. two cans, Goya brand" style="resize:none;">'+escapeHtml(item.note||"")+'</textarea></div>'+
-    '<p class="helper-text" style="margin-top:-8px;">Cleared automatically once this is checked off — it won\'t carry over next time.</p>';
+    '<textarea id="item-note-input" class="text-input" rows="2" placeholder="e.g. two cans, Goya brand" style="resize:none;">'+escapeHtml(item.note||"")+'</textarea></div>';
+  if(item.noteImage){
+    html += '<div style="position:relative;display:inline-block;margin-bottom:14px;">'+
+      '<img src="'+escapeHtml(item.noteImage)+'" alt="" style="max-width:130px;max-height:130px;border-radius:12px;display:block;border:1px solid var(--border);">'+
+      '<button class="icon-btn" id="remove-note-image-btn" aria-label="Remove photo" style="position:absolute;top:-10px;right:-10px;background:var(--card);border:1px solid var(--border);border-radius:50%;">✕</button>'+
+      '</div>';
+  } else {
+    html += '<button class="btn btn-secondary btn-block" id="scan-photo-btn" style="margin-bottom:14px;">📷 Scan barcode for a photo</button>';
+  }
+  html += '<p class="helper-text" style="margin-top:-8px;">Note and photo clear automatically once this is checked off — nothing carries over next time.</p>';
   if(stores.length){
     html += '<p class="helper-text">Only available at certain stores? Tag it below.</p><div class="store-list">';
     stores.forEach(function(s){
@@ -862,14 +1001,20 @@ function flushNoteIfOpen(){
     }
   }
 }
+function closeSheet(){
+  stopActiveScan();
+  flushNoteIfOpen();
+  S.sheet = null;
+  render();
+}
 function bindSheet(){
   var backdrop = document.getElementById("sheet-backdrop");
   if(backdrop){
-    backdrop.onclick = function(e){ if(e.target===backdrop){ flushNoteIfOpen(); S.sheet=null; render(); } };
+    backdrop.onclick = function(e){ if(e.target===backdrop){ closeSheet(); } };
   }
   var closeBtn = document.getElementById("sheet-close-btn");
   if(closeBtn){
-    closeBtn.onclick = function(){ flushNoteIfOpen(); S.sheet=null; render(); };
+    closeBtn.onclick = closeSheet;
   }
   if(S.sheet.type==="settings"){
     var b, input;
@@ -941,7 +1086,7 @@ function bindSheet(){
     };
     if((b=document.getElementById("switch-list-btn"))) b.onclick = function(){
       forgetLocalSpace(); teardownSubs();
-      S.spaceCode=null; S.space={stores:[],people:[]}; S.items=[]; S.sheet=null; S.filterStore=null; S.view="list";
+      S.spaceCode=null; S.space={stores:[],people:[]}; S.items=[]; S.presence=[]; S.sheet=null; S.filterStore=null; S.view="list";
       render();
     };
   } else if(S.sheet.type==="editItem"){
@@ -972,6 +1117,24 @@ function bindSheet(){
     if(db2) db2.onclick = function(){
       store.deleteItem(S.spaceCode, item.id).catch(function(){ showToast("Couldn't delete that item"); });
       S.sheet=null; render();
+    };
+    var scanBtn = document.getElementById("scan-photo-btn");
+    if(scanBtn) scanBtn.onclick = function(){
+      var id = item.id;
+      S.sheet = {type:"scan", itemId:id};
+      render();
+      startBarcodeScan(id);
+    };
+    var removeImgBtn = document.getElementById("remove-note-image-btn");
+    if(removeImgBtn) removeImgBtn.onclick = function(){
+      store.setItemNoteImage(S.spaceCode, item.id, null).catch(function(){ showToast("Couldn't remove photo"); });
+    };
+  } else if(S.sheet.type==="scan"){
+    var cancelBtn = document.getElementById("scan-cancel-btn");
+    if(cancelBtn) cancelBtn.onclick = function(){
+      stopActiveScan();
+      S.sheet = {type:"editItem", itemId:S.sheet.itemId};
+      render();
     };
   }
 }
