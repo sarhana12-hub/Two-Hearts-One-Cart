@@ -320,9 +320,9 @@ function startBarcodeScan(itemId){
       render();
     }).catch(function(err){
       stopActiveScan();
-      var msg = "Couldn't get a photo for that item";
-      if(err && err.message==="not_found") msg = "That barcode isn't in the product database";
-      else if(err && err.message==="no_image") msg = "Found the product, but no photo is available";
+      var msg = "No luck this time — add a note instead?";
+      if(err && err.message==="not_found") msg = "Not in the product database this time — no problem, add a note instead";
+      else if(err && err.message==="no_image") msg = "Found the product, but no photo on file — add a note instead";
       else if(err && err.name==="NotAllowedError") msg = "Camera access denied — check your browser settings";
       showToast(msg);
       S.sheet = {type:"editItem", itemId: itemId};
@@ -857,7 +857,7 @@ function scanSheetHtml(){
     '<div style="background:#000;border-radius:12px;overflow:hidden;aspect-ratio:4/3;margin-bottom:12px;">'+
       '<video id="scan-video" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>'+
     '</div>'+
-    '<p class="helper-text" id="scan-status" style="text-align:center;">Point your camera at a barcode.</p>'+
+    '<p class="helper-text" id="scan-status" style="text-align:center;">Point your camera at a barcode — best odds on packaged national brands.</p>'+
     '<button class="btn btn-secondary btn-block" id="scan-cancel-btn">Cancel</button>'+
     '</div></div>';
 }
@@ -870,7 +870,7 @@ var HELP_TEXT = {
       "Tap the circle next to an item to check it off while you shop. Checked items get a green strikethrough and sink to the bottom, but stay visible so you can see what's in your cart.",
       "Once you're done shopping, tap Move to history to archive everything you checked off.",
       "Tap an item's name to add a note (quantity, brand, instructions) or tag which stores carry it. Only tag a store if the item is exclusive to it — an untagged item is assumed to be carried everywhere, so it'll keep showing up no matter which store filter is selected.",
-      "From that same panel, tap Scan barcode for a photo to point your camera at a product's barcode and pull in a picture of exactly that item — handy for matching a specific brand. Like the note, it clears once the item's checked off.",
+      "From that same panel, Try scanning for a photo is a nice bonus when it hits — it looks up a product's barcode and pulls in a picture of exactly that item. It's genuinely hit-or-miss: reliable for national brands and Trader Joe's, spotty for smaller store brands, and it can't find fresh produce or most household items at all, since barcodes don't really exist for those. Treat a miss as normal, not a bug — just add a note instead. Like the note, a found photo clears once the item's checked off.",
       "The bottom of that panel also shows who added the item and when, so you can tell at a glance whether it's still worth buying or just stale leftover.",
       "If your partner has the list open at the same time, you'll see a banner up top letting you know they're shopping right now."
     ]
@@ -967,9 +967,10 @@ function editItemSheetHtml(){
       '<button class="icon-btn" id="remove-note-image-btn" aria-label="Remove photo" style="position:absolute;top:-10px;right:-10px;background:var(--card);border:1px solid var(--border);border-radius:50%;">✕</button>'+
       '</div>';
   } else {
-    html += '<button class="btn btn-secondary btn-block" id="scan-photo-btn" style="margin-bottom:14px;">📷 Scan barcode for a photo</button>';
+    html += '<button class="btn btn-secondary btn-block" id="scan-photo-btn">📷 Try scanning for a photo</button>'+
+      '<p class="helper-text" style="margin:6px 0 14px;">A nice bonus when it works — best odds on national brands and Trader Joe\'s. Fresh produce, household items, and smaller store brands often won\'t be found.</p>';
   }
-  html += '<p class="helper-text" style="margin-top:-8px;">Note and photo clear automatically once this is checked off — nothing carries over next time.</p>';
+  html += '<p class="helper-text">Note and photo clear automatically once this is checked off — nothing carries over next time.</p>';
   if(stores.length){
     html += '<p class="helper-text">Only available at certain stores? Tag it below.</p><div class="store-list">';
     stores.forEach(function(s){
