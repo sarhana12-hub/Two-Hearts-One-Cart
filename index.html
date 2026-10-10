@@ -8,7 +8,8 @@
 <link rel="icon" href="./icons/favicon-32.png" sizes="32x32">
 <link rel="icon" href="./icons/favicon-16.png" sizes="16x16">
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
-<meta name="theme-color" content="#FBF8F2">
+<meta name="theme-color" content="#FBF8F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1C1816" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="One Cart">
@@ -16,7 +17,22 @@
   :root{
     --bg:#FBF8F2; --card:#FFFFFF; --ink:#2B2320; --ink-soft:#8A8078;
     --border:#ECE6DC; --accent:#FF5D7A; --accent-soft:#FFE3E8; --accent-ink:#8C1F37;
-    --done:#B9C9AE; --checked-green:#3F8557; --radius:16px; --shadow:0 1px 2px rgba(43,35,32,.06), 0 6px 20px rgba(43,35,32,.06);
+    --done:#B9C9AE; --checked-green:#3F8557; --danger:#A32E2E; --radius:16px; --shadow:0 1px 2px rgba(43,35,32,.06), 0 6px 20px rgba(43,35,32,.06);
+    --toast-bg:#2B2320; --toast-ink:#FFFFFF; --toast-action:#FFB3C1; --backdrop:rgba(43,35,32,.4);
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#1C1816; --card:#27221F; --ink:#F3EDE6; --ink-soft:#A69C93;
+      --border:#3B342F; --accent:#FF6B86; --accent-soft:#3F232A; --accent-ink:#FFB3C1;
+      --done:#4B6647; --checked-green:#8FCB9B; --danger:#FF8A8A; --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 20px rgba(0,0,0,.35);
+      --toast-bg:#F3EDE6; --toast-ink:#2B2320; --toast-action:#8C1F37; --backdrop:rgba(0,0,0,.6);
+      color-scheme:dark;
+    }
+    .err-box{background:#3B1F1F;color:#F3A6A6;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation:none!important;transition:none!important;}
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -32,13 +48,14 @@
   .check-circle,.item-row{touch-action:manipulation;}
   input{font:inherit;}
   textarea{font:inherit;}
-  .btn{border:none;border-radius:999px;padding:13px 20px;font-weight:600;cursor:pointer;transition:transform .1s;}
+  .btn{border:none;border-radius:999px;padding:13px 20px;font-weight:600;cursor:pointer;transition:transform .1s,opacity .15s;}
   .btn:active{transform:scale(.97);}
   .btn-primary{background:var(--accent);color:#fff;}
   .btn-secondary{background:var(--card);color:var(--ink);border:1px solid var(--border);}
   .btn-block{width:100%;display:block;}
   .btn[disabled]{opacity:.55;}
   .link-btn{background:none;border:none;color:var(--accent-ink);font-weight:600;cursor:pointer;padding:8px;}
+  .link-btn.danger{color:var(--danger);}
   .icon-btn{background:none;border:none;cursor:pointer;padding:8px;border-radius:10px;color:var(--ink);display:flex;align-items:center;justify-content:center;}
   .icon-btn:active{background:var(--accent-soft);}
   .field{margin-bottom:14px;}
@@ -50,6 +67,8 @@
   .field input:focus, .text-input:focus{outline:2px solid var(--accent);outline-offset:1px;}
   .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.5px;}
   .err-box{background:#FDECEC;color:#A32E2E;padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:12px;}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .field input:focus-visible, .text-input:focus-visible{outline-offset:1px;}
   .helper-text{color:var(--ink-soft);font-size:14px;margin:0 0 18px;}
 
   /* onboarding / auth */
@@ -69,14 +88,22 @@
   .app-title{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:700;}
   .app-title .mark{font-size:22px;}
   .presence-banner{margin:0 18px 10px;padding:8px 12px;border-radius:12px;background:var(--accent-soft);color:var(--accent-ink);font-size:13px;font-weight:600;}
+  .offline-pill{margin:0 18px 10px;padding:8px 12px;border-radius:12px;background:var(--border);color:var(--ink-soft);font-size:13px;font-weight:600;}
   .tabs{display:flex;gap:6px;padding:0 18px 10px;}
-  .tab-btn{flex:1;padding:10px 0;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--ink-soft);font-weight:600;cursor:pointer;}
+  .tab-btn{flex:1;padding:10px 0;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--ink-soft);font-weight:600;cursor:pointer;transition:background .15s,color .15s;}
   .tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .tab-count{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:999px;font-size:11px;line-height:18px;background:var(--accent-soft);color:var(--accent-ink);vertical-align:1px;}
+  .tab-btn.active .tab-count{background:rgba(255,255,255,.28);color:#fff;}
+  .progress-line{display:flex;align-items:center;gap:10px;padding:0 18px 10px;font-size:12px;font-weight:600;color:var(--ink-soft);}
+  .progress-track{flex:1;height:4px;border-radius:2px;background:var(--border);overflow:hidden;}
+  .progress-fill{height:100%;border-radius:2px;background:var(--checked-green);transition:width .3s ease;}
 
   .chip-row{display:flex;gap:8px;overflow-x:auto;padding:2px 18px 10px;scrollbar-width:none;}
   .chip-row::-webkit-scrollbar{display:none;}
   .chip{flex:0 0 auto;padding:8px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;}
   .chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .chip-count{display:inline-block;min-width:16px;padding:0 4px;margin-left:5px;border-radius:999px;font-size:11px;line-height:16px;text-align:center;background:var(--accent-soft);color:var(--accent-ink);}
+  .chip.active .chip-count{background:rgba(255,255,255,.28);color:#fff;}
   .chip.quick{background:var(--accent-soft);border-color:var(--accent-soft);color:var(--accent-ink);}
   .chip.quick:active{transform:scale(.96);}
   .chip-grid{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 90px;}
@@ -93,9 +120,13 @@
   .empty-state{text-align:center;color:var(--ink-soft);padding:60px 20px;}
   .empty-state .mark{font-size:40px;display:block;margin-bottom:10px;}
 
-  .item-row{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:8px;cursor:pointer;}
-  .check-circle{flex:0 0 auto;width:26px;height:26px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;margin-top:1px;background:#fff;}
+  .item-row{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:transform .1s,background .15s;}
+  .item-row:active{transform:scale(.99);}
+  .check-circle{flex:0 0 auto;width:26px;height:26px;padding:0;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;margin-top:1px;background:var(--card);color:#fff;font-size:14px;line-height:1;cursor:pointer;transition:background .15s,border-color .15s,transform .15s;}
+  .check-circle:active{transform:scale(.88);}
   .check-circle.done{background:var(--done);border-color:var(--done);color:#fff;}
+  .check-circle.pop{animation:pop .28s cubic-bezier(.2,.8,.3,1.4);}
+  @keyframes pop{0%{transform:scale(.7);}60%{transform:scale(1.18);}100%{transform:scale(1);}}
   .item-body{flex:1;min-width:0;}
   .item-name{font-weight:600;word-break:break-word;}
   .item-name.done{text-decoration:line-through;color:var(--ink-soft);}
@@ -105,11 +136,19 @@
   .tag-pill{font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent-soft);padding:3px 8px;border-radius:999px;}
   .item-meta{font-size:12px;color:var(--ink-soft);margin-top:3px;}
   .row-action{flex:0 0 auto;}
-  .bottom-bar{padding:10px 18px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--bg);}
+  .bottom-bar{position:sticky;bottom:0;z-index:5;padding:10px 18px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--bg);}
 
   /* sheet overlay */
-  .sheet-backdrop{position:fixed;inset:0;background:rgba(43,35,32,.4);display:flex;align-items:flex-end;z-index:50;}
-  .sheet{position:relative;background:var(--bg);width:100%;max-width:480px;margin:0 auto;border-radius:20px 20px 0 0;padding:18px 20px calc(20px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;}
+  .sheet-backdrop{position:fixed;inset:0;background:var(--backdrop);display:flex;align-items:flex-end;z-index:50;}
+  .sheet-backdrop.entering{animation:fade-in .18s ease-out;}
+  .sheet{position:relative;background:var(--bg);width:100%;max-width:480px;margin:0 auto;border-radius:20px 20px 0 0;padding:18px 20px calc(20px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;box-shadow:0 -8px 30px rgba(0,0,0,.12);}
+  .sheet.entering{animation:sheet-up .24s cubic-bezier(.2,.8,.2,1);}
+  @keyframes sheet-up{from{transform:translateY(32px);opacity:.5;}to{transform:translateY(0);opacity:1;}}
+  @keyframes fade-in{from{opacity:0;}to{opacity:1;}}
+  .note-row{display:flex;gap:8px;align-items:stretch;}
+  .note-row .emoji-input{flex:0 0 56px;text-align:center;font-size:22px;padding:8px 4px;}
+  .note-row textarea{flex:1;}
+  .row-actions{display:flex;gap:2px;}
   .sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px;}
   .sheet h2{font-size:18px;margin:0 0 14px;padding-right:30px;}
   .sheet-close{position:absolute;top:14px;right:14px;font-size:22px;line-height:1;color:var(--ink-soft);}
@@ -122,12 +161,16 @@
   .code-box{display:flex;align-items:center;justify-content:space-between;background:var(--accent-soft);border-radius:12px;padding:12px 14px;margin-bottom:8px;}
   .code-box .mono{font-size:18px;font-weight:700;color:var(--accent-ink);}
   .people-row{display:flex;align-items:center;gap:8px;padding:6px 0;color:var(--ink-soft);}
-  .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;z-index:80;box-shadow:var(--shadow);}
+  .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-ink);padding:10px 18px;border-radius:999px;font-size:13px;z-index:80;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px;max-width:calc(100% - 36px);white-space:nowrap;animation:toast-in .2s ease-out;}
+  .toast span{overflow:hidden;text-overflow:ellipsis;}
+  .toast button{background:none;border:none;padding:0;color:var(--toast-action);font-weight:700;font-size:13px;cursor:pointer;flex:0 0 auto;}
+  @keyframes toast-in{from{transform:translate(-50%,10px);opacity:0;}to{transform:translate(-50%,0);opacity:1;}}
   .loading-screen{flex:1;display:flex;align-items:center;justify-content:center;color:var(--ink-soft);}
 </style>
 </head>
 <body>
 <div id="app"></div>
+<div id="toast-root"></div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
@@ -135,7 +178,8 @@ import {
   setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
+  getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
   collection, serverTimestamp, increment, arrayUnion, arrayRemove, writeBatch, deleteField
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -150,7 +194,15 @@ const firebaseConfig = {
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
-const dbase = getFirestore(fbApp);
+// Persistent local cache so the list still opens (and edits queue up) in a
+// store with no signal; Firestore replays queued writes once we're back
+// online. Falls back to the plain in-memory cache if IndexedDB is unavailable.
+let dbase;
+try {
+  dbase = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+} catch (e) {
+  dbase = getFirestore(fbApp);
+}
 setPersistence(auth, browserLocalPersistence).catch(function(){});
 
 /* ---------------- utils ---------------- */
@@ -163,12 +215,30 @@ function slugify(s){
   var v = String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
   return v || ("item-" + Math.random().toString(36).slice(2,8));
 }
+// Toasts live in their own element outside #app, so showing one never
+// re-renders the app (which used to blow away focus and in-progress typing).
+// Pass {label, onClick} to add an action button, e.g. Undo.
 var toastTimer=null;
-function showToast(msg){
-  S.toast = msg; render();
+function showToast(msg, action){
+  var root = document.getElementById("toast-root");
+  if(!root) return;
+  var html = '<div class="toast" role="status"><span>'+escapeHtml(msg)+'</span>';
+  if(action) html += '<button type="button" id="toast-action-btn">'+escapeHtml(action.label)+'</button>';
+  html += '</div>';
+  root.innerHTML = html;
+  if(action){
+    var b = document.getElementById("toast-action-btn");
+    if(b) b.onclick = function(){ hideToast(); action.onClick(); };
+  }
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(function(){ S.toast=null; render(); }, 2200);
+  toastTimer = setTimeout(hideToast, action ? 6000 : 2200);
 }
+function hideToast(){
+  clearTimeout(toastTimer);
+  var root = document.getElementById("toast-root");
+  if(root) root.innerHTML = "";
+}
+function buzz(){ try{ if(navigator.vibrate) navigator.vibrate(8); }catch(e){} }
 var CODE_WORDS = ["MILK","EGGS","BREAD","APPLE","PASTA","BASIL","MANGO","THYME","OLIVE","HONEY","PEACH","LEMON","QUINOA","GRAPE","ONION","BERRY","CHIVE","MELON"];
 function genCode(){
   var w = CODE_WORDS[Math.floor(Math.random()*CODE_WORDS.length)];
@@ -253,6 +323,37 @@ var STARTER_ITEMS = [
 var EMOJI_MAP = {};
 STARTER_ITEMS.forEach(function(it){ EMOJI_MAP[it.name.toLowerCase()] = it.emoji; });
 
+// Best-effort emoji for anything typed that isn't a starter item. Matched as
+// word-prefixes against the lowercase name, first hit wins, so multi-word and
+// more specific keywords come before the generic ones they contain ("ice
+// cream" before "cream", "sweet potato" before "potato"). Wrong guesses can be
+// fixed from the item's edit sheet.
+var EMOJI_KEYWORDS = [
+  ["ice cream","🍦"],["cream cheese","🧀"],["sour cream","🥛"],["whipped cream","🍦"],["sweet potato","🍠"],["hot dog","🌭"],["watermelon","🍉"],
+  ["peanut","🥜"],["peach","🍑"],["pear","🍐"],["pepper","🫑"],["paper towel","🧻"],["toilet paper","🧻"],["olive oil","🫒"],["orange juice","🧃"],
+  ["chicken","🍗"],["turkey","🦃"],["beef","🥩"],["steak","🥩"],["pork","🥓"],["bacon","🥓"],["sausage","🌭"],["ham","🍖"],["shrimp","🦐"],["salmon","🐟"],["fish","🐟"],["tuna","🐟"],["egg","🥚"],["tofu","🧊"],
+  ["cheese","🧀"],["cheddar","🧀"],["parmesan","🧀"],["mozzarella","🧀"],["feta","🧀"],["brie","🧀"],["gouda","🧀"],["milk","🥛"],["yogurt","🥣"],["butter","🧈"],["cream","🥛"],["kefir","🥛"],
+  ["bread","🍞"],["bagel","🥯"],["croissant","🥐"],["muffin","🧁"],["cake","🍰"],["pie","🥧"],["donut","🍩"],["waffle","🧇"],["pancake","🥞"],["tortilla","🫓"],["pita","🫓"],["naan","🫓"],["rice","🍚"],["pasta","🍝"],["spaghetti","🍝"],["noodle","🍜"],["ramen","🍜"],["cereal","🥣"],["granola","🥣"],["oat","🌾"],["flour","🌾"],["quinoa","🌾"],
+  ["apple","🍎"],["banana","🍌"],["orange","🍊"],["clementine","🍊"],["lemon","🍋"],["lime","🍋"],["grape","🍇"],["strawberr","🍓"],["blueberr","🫐"],["raspberr","🍓"],["berr","🫐"],["melon","🍈"],["cherr","🍒"],["mango","🥭"],["pineapple","🍍"],["kiwi","🥝"],["avocado","🥑"],["coconut","🥥"],["plum","🍑"],["apricot","🍑"],["fig","🍈"],
+  ["tomato","🍅"],["potato","🥔"],["carrot","🥕"],["corn","🌽"],["broccoli","🥦"],["cauliflower","🥦"],["lettuce","🥬"],["spinach","🥬"],["kale","🥬"],["arugula","🥬"],["cabbage","🥬"],["cucumber","🥒"],["pickle","🥒"],["zucchini","🥒"],["celery","🥬"],["onion","🧅"],["shallot","🧅"],["garlic","🧄"],["mushroom","🍄"],["eggplant","🍆"],["bean","🫘"],["lentil","🫘"],["chickpea","🫘"],["pea","🫛"],["olive","🫒"],["herb","🌿"],["basil","🌿"],["cilantro","🌿"],["parsley","🌿"],["mint","🌿"],["dill","🌿"],["thyme","🌿"],["rosemary","🌿"],["ginger","🫚"],["squash","🎃"],["pumpkin","🎃"],["asparagus","🌱"],
+  ["coffee","☕"],["espresso","☕"],["tea","🍵"],["juice","🧃"],["soda","🥤"],["cola","🥤"],["sparkling","🥤"],["seltzer","🥤"],["water","💧"],["beer","🍺"],["wine","🍷"],["kombucha","🍵"],["lemonade","🍋"],
+  ["chip","🥔"],["cracker","🍘"],["cookie","🍪"],["chocolate","🍫"],["candy","🍬"],["gum","🍬"],["popcorn","🍿"],["pretzel","🥨"],["pizza","🍕"],["burger","🍔"],["taco","🌮"],["burrito","🌯"],["sushi","🍣"],["soup","🍲"],["broth","🍲"],["stock","🍲"],["salad","🥗"],["honey","🍯"],["jam","🍯"],["jelly","🍯"],["syrup","🍯"],["nut","🥜"],["almond","🌰"],["cashew","🌰"],["walnut","🌰"],["salt","🧂"],["spice","🧂"],["seasoning","🧂"],["cinnamon","🧂"],["cumin","🧂"],["paprika","🧂"],["sugar","🧂"],["oil","🫒"],["vinegar","🫙"],["sauce","🥫"],["ketchup","🥫"],["mustard","🥫"],["mayo","🥫"],["salsa","🥫"],["hummus","🧆"],["canned","🥫"],["dressing","🥗"],["dip","🥣"],["tahini","🥣"],
+  ["soap","🧼"],["detergent","🧴"],["shampoo","🧴"],["conditioner","🧴"],["lotion","🧴"],["sunscreen","🧴"],["sponge","🧽"],["trash","🗑️"],["garbage","🗑️"],["tissue","🧻"],["napkin","🧻"],["wipe","🧻"],["foil","🧻"],["candle","🕯️"],["batter","🔋"],["light bulb","💡"],["bulb","💡"],["flower","💐"],["diaper","🍼"],["formula","🍼"],["baby","🍼"],["dog","🐶"],["cat","🐱"],["toothpaste","🪥"],["toothbrush","🪥"],["floss","🪥"],["vitamin","💊"],["medicine","💊"],["advil","💊"],["tylenol","💊"],["bandaid","🩹"],["band-aid","🩹"],["razor","🪒"],["deodorant","🧴"]
+];
+function guessEmoji(name){
+  var n = String(name||"").toLowerCase();
+  if(EMOJI_MAP[n]) return EMOJI_MAP[n];
+  for(var i=0;i<EMOJI_KEYWORDS.length;i++){
+    var kw = EMOJI_KEYWORDS[i][0];
+    var idx = n.indexOf(kw);
+    while(idx !== -1){
+      if(idx===0 || /[^a-z]/.test(n.charAt(idx-1))) return EMOJI_KEYWORDS[i][1];
+      idx = n.indexOf(kw, idx+1);
+    }
+  }
+  return null;
+}
+
 // Best-effort "what would we actually call this" table, keyed by Open Food
 // Facts category tag (locale prefix like "en:" stripped). Covers common
 // packaged-grocery categories, not an exhaustive taxonomy - good enough to
@@ -304,12 +405,12 @@ function relTime(iso){
   if(!iso) return "";
   var d = (iso.toDate) ? iso.toDate() : new Date(iso);
   var diffMs = Date.now() - d.getTime();
-  var mins = Math.round(diffMs/60000);
+  var mins = Math.floor(diffMs/60000);
   if(mins < 1) return "just now";
   if(mins < 60) return mins+"m ago";
-  var hrs = Math.round(mins/60);
+  var hrs = Math.floor(mins/60);
   if(hrs < 24) return hrs+"h ago";
-  var days = Math.round(hrs/24);
+  var days = Math.floor(hrs/24);
   if(days < 7) return days+"d ago";
   return d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
 }
@@ -396,13 +497,19 @@ var store = {
   saveUserProfile: function(uid, data){
     return setDoc(doc(dbase,"users",uid), data, {merge:true});
   },
+  // Resolves {data, created} so the caller can tell a brand-new list apart
+  // from joining one that already existed (a typo'd code silently starting a
+  // fresh list is otherwise indistinguishable from a successful join).
   ensureSpace: function(code){
     var ref = doc(dbase,"groceryLists",code);
     return getDoc(ref).then(function(snap){
-      if(snap.exists()) return snap.data();
+      if(snap.exists()) return {data: snap.data(), created:false};
       var fresh = {stores: DEFAULT_STORES.slice(), people:[], createdAt: new Date().toISOString()};
-      return setDoc(ref, fresh).then(function(){ return store.seedStarterItems(code); }).then(function(){ return fresh; });
+      return setDoc(ref, fresh).then(function(){ return store.seedStarterItems(code); }).then(function(){ return {data: fresh, created:true}; });
     });
+  },
+  addPerson: function(code, uid, name){
+    return updateDoc(doc(dbase,"groceryLists",code), {people: arrayUnion({uid:uid, name:name})});
   },
   seedStarterItems: function(code){
     var batch = writeBatch(dbase);
@@ -461,8 +568,26 @@ var store = {
       createdAt: serverTimestamp(),
       lastAddedAt: serverTimestamp()
     };
-    if(EMOJI_MAP[nameKey]) patch.emoji = EMOJI_MAP[nameKey];
-    return setDoc(ref, patch, {merge:true});
+    var emoji = guessEmoji(nameKey);
+    if(emoji) patch.emoji = emoji;
+    return setDoc(ref, patch, {merge:true}).then(function(){ return id; });
+  },
+  // Undo helpers: put a doc back exactly as captured before a destructive op.
+  restoreDeleted: function(code, id, data){
+    return setDoc(doc(dbase,"groceryLists",code,"items",id), data);
+  },
+  putBack: function(code, snapshots){
+    var batch = writeBatch(dbase);
+    snapshots.forEach(function(sn){
+      var patch = {status:"active", checked: !!sn.checked};
+      if(sn.note) patch.note = sn.note;
+      if(sn.noteImage) patch.noteImage = sn.noteImage;
+      batch.update(doc(dbase,"groceryLists",code,"items",sn.id), patch);
+    });
+    return batch.commit();
+  },
+  setItemEmoji: function(code, id, emoji){
+    return updateDoc(doc(dbase,"groceryLists",code,"items",id), emoji ? {emoji: emoji} : {emoji: deleteField()});
   },
   restoreItem: function(code, id, uid){
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), {
@@ -519,9 +644,11 @@ var S = {
   authReady:false,
   meUid:null, me:null,
   spaceCode:null, loadingSpace:false, space:{stores:[], people:[]}, items:[],
-  view:"list", filterStore:null, searchQuery:"", sheet:null, toast:null, renamingStore:null,
-  presence:[]
+  view:"list", filterStore:null, searchQuery:"", sheet:null, renamingStore:null,
+  presence:[], online: navigator.onLine !== false, popId:null, sheetEntering:false
 };
+window.addEventListener("online", function(){ S.online = true; renderPreservingInput(); });
+window.addEventListener("offline", function(){ S.online = false; renderPreservingInput(); });
 var unsubs = [];
 function teardownSubs(){ unsubs.forEach(function(u){ try{u();}catch(e){} }); unsubs=[]; stopPresenceHeartbeat(); }
 
@@ -561,7 +688,18 @@ function forgetLocalSpace(){ try{ localStorage.removeItem("thoc_space"); }catch(
 
 /* ---------------- render root ---------------- */
 var app = document.getElementById("app");
+var lastSheetKey = null;
 function render(){
+  // A live barcode scan owns the <video> element the ZXing reader is
+  // streaming into. Rebuilding the DOM underneath it (a partner's edit, the
+  // presence heartbeat) would silently kill the camera feed, so hold off;
+  // whatever changed renders as soon as the scan sheet closes.
+  if(S.sheet && S.sheet.type==="scan" && !S.sheet.result && activeScanReader && document.getElementById("scan-video")) return;
+  var prevSheet = document.querySelector(".sheet");
+  var sheetScroll = prevSheet ? prevSheet.scrollTop : 0;
+  var sheetKey = S.sheet ? (S.sheet.type+":"+(S.sheet.itemId||"")+(S.sheet.result?":result":"")) : null;
+  S.sheetEntering = sheetKey !== null && sheetKey !== lastSheetKey;
+  lastSheetKey = sheetKey;
   var html;
   if(!S.authReady){
     html = '<div class="shell"><div class="loading-screen">Loading…</div></div>';
@@ -570,9 +708,14 @@ function render(){
   } else {
     html = '<div class="shell">'+appHtml()+'</div>';
   }
-  if(S.toast) html += '<div class="toast">'+escapeHtml(S.toast)+'</div>';
   if(S.sheet) html += sheetHtml();
   app.innerHTML = html;
+  // Keep the sheet where it was scrolled: a tag toggle or a partner's edit
+  // used to snap a long edit sheet back to the top.
+  if(S.sheet && sheetScroll && !S.sheetEntering){
+    var nextSheet = document.querySelector(".sheet");
+    if(nextSheet) nextSheet.scrollTop = sheetScroll;
+  }
 
   if(!S.authReady) return;
   if(!S.spaceCode || S.loadingSpace){ if(!S.loadingSpace) bindEntry(); return; }
@@ -640,12 +783,17 @@ function enterSpace(code){
   S.spaceCode = code; S.loadingSpace = true; persistSpace();
   teardownSubs();
   render();
-  store.ensureSpace(code).then(function(space){
+  store.ensureSpace(code).then(function(res){
+    var space = res.data;
     S.space = space; S.loadingSpace = false;
     var already = (space.people||[]).some(function(p){ return p.uid===S.meUid; });
     if(!already){
-      var people = (space.people||[]).concat([{uid:S.meUid, name:S.me}]);
-      store.updateSpace(code, {people: people});
+      // arrayUnion rather than read-modify-write, so two people joining at
+      // the same moment can't overwrite each other's entry.
+      store.addPerson(code, S.meUid, S.me).catch(function(){});
+    }
+    if(res.created){
+      setTimeout(function(){ showToast("Started a new list — share the code from Settings"); }, 300);
     }
     unsubs.push(store.subscribeSpace(code, function(sp){ S.space = sp; renderPreservingInput(); }));
     unsubs.push(store.subscribeItems(code, function(items){ S.items = items; renderPreservingInput(); }));
@@ -654,7 +802,8 @@ function enterSpace(code){
     render();
   }).catch(function(){
     S.loadingSpace = false; S.spaceCode = null; forgetLocalSpace();
-    showToast("Couldn't open that list — check the code and try again");
+    render();
+    showToast(navigator.onLine===false ? "You're offline — this list hasn't been opened on this device before" : "Couldn't open that list — check the code and try again");
   });
 }
 
@@ -730,18 +879,31 @@ function appHtml(){
   if(partners.length){
     html += '<div class="presence-banner">🛒 '+partners.map(function(p){ return escapeHtml(p.name||"Your partner"); }).join(" & ")+' shopping now</div>';
   }
-  html += '<div class="tabs">'+
-    '<button class="tab-btn'+(S.view==="list"?" active":"")+'" id="tab-list">List</button>'+
-    '<button class="tab-btn'+(S.view==="browse"?" active":"")+'" id="tab-browse">Browse</button>'+
-    '<button class="tab-btn'+(S.view==="history"?" active":"")+'" id="tab-history">History</button>'+
+  if(!S.online){
+    html += '<div class="offline-pill">📵 Offline — changes save here and sync when you\'re back</div>';
+  }
+  var allActive = S.items.filter(function(it){ return it.status==="active"; });
+  var toBuy = allActive.filter(function(it){ return !it.checked; });
+  function tab(id, label, active, count){
+    return '<button class="tab-btn'+(active?" active":"")+'" id="'+id+'" role="tab" aria-selected="'+(active?"true":"false")+'">'+label+
+      (count ? '<span class="tab-count">'+count+'</span>' : '')+'</button>';
+  }
+  html += '<div class="tabs" role="tablist">'+
+    tab("tab-list","List",S.view==="list",toBuy.length)+
+    tab("tab-browse","Browse",S.view==="browse",0)+
+    tab("tab-history","History",S.view==="history",0)+
     '</div>';
 
   var stores = storesList();
   if(stores.length){
+    // On the List tab each store chip carries the number of still-unchecked
+    // items that are exclusive to that store, i.e. "do we need to stop there?"
+    var showCounts = S.view==="list";
     html += '<div class="chip-row">';
-    html += '<button class="chip'+(!S.filterStore?" active":"")+'" data-store="">All</button>';
+    html += '<button class="chip'+(!S.filterStore?" active":"")+'" data-store="">All'+(showCounts && toBuy.length ? '<span class="chip-count">'+toBuy.length+'</span>' : '')+'</button>';
     stores.forEach(function(s){
-      html += '<button class="chip'+(S.filterStore===s?" active":"")+'" data-store="'+escapeHtml(s)+'">'+escapeHtml(s)+'</button>';
+      var n = showCounts ? toBuy.filter(function(it){ return (it.storeTags||[]).indexOf(s) !== -1; }).length : 0;
+      html += '<button class="chip'+(S.filterStore===s?" active":"")+'" data-store="'+escapeHtml(s)+'">'+escapeHtml(s)+(n ? '<span class="chip-count">'+n+'</span>' : '')+'</button>';
     });
     html += '</div>';
   }
@@ -761,6 +923,12 @@ function appHtml(){
     }
 
     var items = activeItems();
+    var inCart = items.filter(function(it){ return it.checked; }).length;
+    if(items.length){
+      var pct = Math.round(inCart/items.length*100);
+      html += '<div class="progress-line"><span>'+(inCart===items.length ? "All "+items.length+" in the cart 🎉" : inCart+" of "+items.length+" in the cart")+'</span>'+
+        '<div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+pct+'"><div class="progress-fill" style="width:'+pct+'%"></div></div></div>';
+    }
     html += '<div class="list">';
     if(!items.length){
       html += '<div class="empty-state"><span class="mark">🧺</span>'+(S.filterStore ? "Nothing tagged for "+escapeHtml(S.filterStore)+" right now." : "Your list is empty. Search above or browse common items!")+'</div>';
@@ -812,11 +980,11 @@ function appHtml(){
 function itemRowHtml(it, isHistory){
   var tags = (it.storeTags||[]);
   var checked = !isHistory && !!it.checked;
-  var html = '<div class="item-row" data-item="'+escapeHtml(it.id)+'" data-action="'+(isHistory?"restore":"edit")+'">';
+  var html = '<div class="item-row" role="button" tabindex="0" data-item="'+escapeHtml(it.id)+'" data-action="'+(isHistory?"restore":"edit")+'" aria-label="'+(isHistory ? "Add "+escapeHtml(it.name)+" back to the list" : "Edit "+escapeHtml(it.name))+'">';
   if(isHistory){
-    html += '<div class="check-circle done" data-action="restore" data-item="'+escapeHtml(it.id)+'">+</div>';
+    html += '<button type="button" class="check-circle done" data-action="restore" data-item="'+escapeHtml(it.id)+'" aria-label="Add '+escapeHtml(it.name)+' back to the list">+</button>';
   } else {
-    html += '<div class="check-circle'+(checked?" done":"")+'" data-action="toggle-check" data-item="'+escapeHtml(it.id)+'">'+(checked?"✓":"")+'</div>';
+    html += '<button type="button" class="check-circle'+(checked?" done":"")+(S.popId===it.id?" pop":"")+'" data-action="toggle-check" data-item="'+escapeHtml(it.id)+'" role="checkbox" aria-checked="'+(checked?"true":"false")+'" aria-label="'+escapeHtml(it.name)+'">'+(checked?"✓":"")+'</button>';
   }
   html += '<div class="item-body">';
   html += '<div class="item-name'+(isHistory?" done":"")+(checked?" checked":"")+'">'+(it.emoji?escapeHtml(it.emoji)+' ':'')+escapeHtml(it.name)+'</div>';
@@ -859,8 +1027,9 @@ function bindApp(){
     if(!name) return;
     var existing = findExistingMatch(name);
     S.searchQuery = "";
-    if(existing){
-      if(existing.status==="active"){ showToast(existing.name+" is already on your list"); render(); return; }
+    if(existing && existing.status==="active"){
+      showToast(existing.name+" is already on your list");
+    } else if(existing){
       store.restoreItem(S.spaceCode, existing.id, S.meUid).catch(function(){ showToast("Couldn't add that item"); });
     } else {
       var tags = S.filterStore ? [S.filterStore] : [];
@@ -883,15 +1052,24 @@ function bindApp(){
       e.stopPropagation();
       var id = el.getAttribute("data-item");
       var item = S.items.find(function(it){ return it.id===id; });
-      store.toggleChecked(S.spaceCode, id, !(item && item.checked)).catch(function(){ showToast("Couldn't update that item"); });
+      var nowChecked = !(item && item.checked);
+      // Only the circle that was just tapped plays the pop; cleared before the
+      // next unrelated re-render so partner edits don't replay it.
+      S.popId = nowChecked ? id : null;
+      setTimeout(function(){ if(S.popId===id) S.popId=null; }, 400);
+      if(nowChecked) buzz();
+      store.toggleChecked(S.spaceCode, id, nowChecked).catch(function(){ showToast("Couldn't update that item"); });
     };
   });
   if((b=document.getElementById("move-to-history-btn"))) b.onclick = function(){
-    var ids = S.items.filter(function(it){ return it.status==="active" && it.checked; }).map(function(it){ return it.id; });
-    if(!ids.length) return;
-    store.moveCheckedToHistory(S.spaceCode, ids).then(function(){
-      showToast("Moved "+ids.length+" item"+(ids.length===1?"":"s")+" to history");
-    }).catch(function(){ showToast("Couldn't update your list"); });
+    var moved = S.items.filter(function(it){ return it.status==="active" && it.checked; })
+      .map(function(it){ return {id:it.id, checked:true, note:it.note, noteImage:it.noteImage}; });
+    if(!moved.length) return;
+    var ids = moved.map(function(m){ return m.id; });
+    store.moveCheckedToHistory(S.spaceCode, ids).catch(function(){ showToast("Couldn't update your list"); });
+    showToast("Moved "+ids.length+" item"+(ids.length===1?"":"s")+" to history", {label:"Undo", onClick:function(){
+      store.putBack(S.spaceCode, moved).catch(function(){ showToast("Couldn't undo that"); });
+    }});
   };
   if((b=document.getElementById("clear-history-btn"))) b.onclick = function(){
     store.clearHistory(S.spaceCode).then(function(){ showToast("History cleared"); }).catch(function(){ showToast("Couldn't clear history"); });
@@ -906,9 +1084,19 @@ function bindApp(){
       if(item) { S.sheet = {type:"editItem", itemId:id}; render(); }
     };
   });
+  document.querySelectorAll('.item-row').forEach(function(row){
+    row.onkeydown = function(e){
+      if(e.target!==row) return;
+      if(e.key==="Enter" || e.key===" "){ e.preventDefault(); row.click(); }
+    };
+  });
 }
 
 /* ---------------- sheets (settings / edit item) ---------------- */
+function sheetOpen(){
+  var enter = S.sheetEntering ? " entering" : "";
+  return '<div class="sheet-backdrop'+enter+'" id="sheet-backdrop"><div class="sheet'+enter+'" role="dialog" aria-modal="true">';
+}
 function sheetHtml(){
   if(S.sheet.type==="settings") return settingsSheetHtml();
   if(S.sheet.type==="editItem") return editItemSheetHtml();
@@ -919,7 +1107,7 @@ function sheetHtml(){
 function scanSheetHtml(){
   if(S.sheet.result){
     var r = S.sheet.result;
-    return '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
+    return sheetOpen()+
       '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
       '<div class="sheet-handle"></div><h2>Add scanned item</h2>'+
       '<div style="text-align:center;margin-bottom:14px;"><img src="'+escapeHtml(r.image)+'" alt="" style="max-width:140px;max-height:140px;border-radius:12px;border:1px solid var(--border);"></div>'+
@@ -931,7 +1119,7 @@ function scanSheetHtml(){
       '<button class="btn btn-primary btn-block" id="scan-add-confirm-btn">Add to list</button>'+
       '</div></div>';
   }
-  return '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
+  return sheetOpen()+
     '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
     '<div class="sheet-handle"></div><h2>Scan a barcode</h2>'+
     '<div style="background:#000;border-radius:12px;overflow:hidden;aspect-ratio:4/3;margin-bottom:12px;">'+
@@ -949,11 +1137,13 @@ var HELP_TEXT = {
       "Search or add a grocery finds matching items from your catalog as you type, so you can tap to add instantly. If nothing matches, hit Add to create a brand new item. Prefer to browse instead of typing? The Browse tab lets you scroll your whole catalog and tap anything to add it.",
       "The 📷 next to Add scans a barcode to add a new item — it suggests a short, generic name (Milk, not Organic Reduced Fat Milk 2%) and checks whether that already matches something in your catalog before creating anything new, so you don't end up with duplicate near-identical items. You can always edit the suggested name before confirming. Same hit-or-miss odds as the photo-scanning below.",
       "Tap the circle next to an item to check it off while you shop. Checked items get a green strikethrough and sink to the bottom, but stay visible so you can see what's in your cart.",
-      "Once you're done shopping, tap Move to history to archive everything you checked off.",
-      "Tap an item's name to add a note (quantity, brand, instructions) or tag which stores carry it. Only tag a store if the item is exclusive to it — an untagged item is assumed to be carried everywhere, so it'll keep showing up no matter which store filter is selected.",
+      "The line above the list shows how much of today's trip is in the cart, and each store chip shows how many unchecked items are exclusive to that store — handy for deciding whether you still need to stop there.",
+      "Once you're done shopping, tap Move to history to archive everything you checked off. Tapped it too soon? Every Move, Remove and Delete shows an Undo in the little pop-up for a few seconds.",
+      "Tap an item's name to add a note (quantity, brand, instructions) or tag which stores carry it. The small box next to the note is the item's emoji — new items get a best guess, and you can change it to anything you like. Only tag a store if the item is exclusive to it — an untagged item is assumed to be carried everywhere, so it'll keep showing up no matter which store filter is selected.",
       "From that same panel, Try scanning for a photo is a nice bonus when it hits — it looks up a product's barcode and pulls in a picture of exactly that item. It's genuinely hit-or-miss: reliable for national brands and Trader Joe's, spotty for smaller store brands, and it can't find fresh produce or most household items at all, since barcodes don't really exist for those. Treat a miss as normal, not a bug — just add a note instead. Like the note, a found photo clears once the item's checked off.",
       "The bottom of that panel also shows who added the item and when, so you can tell at a glance whether it's still worth buying or just stale leftover.",
-      "If your partner has the list open at the same time, you'll see a banner up top letting you know they're shopping right now."
+      "If your partner has the list open at the same time, you'll see a banner up top letting you know they're shopping right now.",
+      "No signal in the store? The list still opens from what's saved on your phone, and anything you check off or add syncs as soon as you're back online."
     ]
   },
   browse: {
@@ -976,7 +1166,7 @@ var HELP_TEXT = {
 };
 function helpSheetHtml(){
   var info = HELP_TEXT[S.sheet.tab] || HELP_TEXT.list;
-  var html = '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
+  var html = sheetOpen()+
     '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
     '<div class="sheet-handle"></div><h2>'+escapeHtml(info.title)+'</h2>';
   info.body.forEach(function(p){ html += '<p class="helper-text">'+escapeHtml(p)+'</p>'; });
@@ -986,7 +1176,7 @@ function helpSheetHtml(){
 function settingsSheetHtml(){
   var stores = storesList();
   var people = S.space.people||[];
-  var html = '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
+  var html = sheetOpen()+
     '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
     '<div class="sheet-handle"></div><h2>Settings</h2>';
 
@@ -1000,7 +1190,7 @@ function settingsSheetHtml(){
           '<button class="icon-btn" id="cancel-rename-btn" type="button" aria-label="Cancel">✕</button>'+
           '</form>';
       } else {
-        html += '<div class="store-manage-row"><span>'+escapeHtml(s)+'</span><div>'+
+        html += '<div class="store-manage-row"><span>'+escapeHtml(s)+'</span><div class="row-actions">'+
           '<button class="icon-btn" data-rename-store="'+escapeHtml(s)+'" aria-label="Rename">✏️</button>'+
           '<button class="icon-btn" data-remove-store="'+escapeHtml(s)+'" aria-label="Remove">🗑️</button></div></div>';
       }
@@ -1017,8 +1207,14 @@ function settingsSheetHtml(){
     '<p class="helper-text" style="margin-bottom:10px;">Share this code so your partner can join the same list.</p>'+
     '<div class="code-box"><span class="mono" style="font-size:13px;word-break:break-all;">'+escapeHtml(shareUrl(S.spaceCode))+'</span><button class="link-btn" id="copy-link-btn" style="flex:0 0 auto;">Copy</button></div>'+
     '<p class="helper-text" style="margin-bottom:6px;">Or send this link — opening it fills in the code automatically.</p>';
-  people.forEach(function(p){ html += '<div class="people-row">👤 '+escapeHtml(p.name)+'</div>'; });
+  people.forEach(function(p){ html += '<div class="people-row">👤 '+escapeHtml(p.name)+(p.uid===S.meUid ? ' <span style="font-size:12px;">(you)</span>' : '')+'</div>'; });
   html += '</div>';
+
+  html += '<div class="settings-section"><h3>Your name</h3>'+
+    '<form class="add-row" id="my-name-form" style="padding:0;"><input type="text" id="my-name-input" class="text-input" value="'+escapeHtml(S.me||"")+'" autocomplete="off" enterkeyhint="done">'+
+    '<button class="btn btn-secondary" type="submit">Save</button></form>'+
+    '<p class="helper-text" style="margin:6px 0 0;">How you show up to your partner — on items you add and in the "shopping now" banner.</p>'+
+    '</div>';
 
   html += '<div class="settings-section">'+
     '<button class="btn btn-secondary btn-block" id="restore-starters-btn">Add default stores &amp; new starter items</button>'+
@@ -1037,11 +1233,13 @@ function editItemSheetHtml(){
   if(!item){ S.sheet=null; return ""; }
   var stores = storesList();
   var tags = item.storeTags||[];
-  var html = '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
+  var html = sheetOpen()+
     '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
     '<div class="sheet-handle"></div><h2>'+(item.emoji?escapeHtml(item.emoji)+' ':'')+escapeHtml(item.name)+'</h2>';
   html += '<div class="field"><label for="item-note-input">Note (quantity, brand, etc.)</label>'+
-    '<textarea id="item-note-input" class="text-input" rows="2" placeholder="e.g. two cans, Goya brand" style="resize:none;">'+escapeHtml(item.note||"")+'</textarea></div>';
+    '<div class="note-row">'+
+    '<input type="text" id="item-emoji-input" class="text-input emoji-input" value="'+escapeHtml(item.emoji||"")+'" maxlength="4" placeholder="🛒" aria-label="Emoji" autocomplete="off">'+
+    '<textarea id="item-note-input" class="text-input" rows="2" placeholder="e.g. two cans, Goya brand" style="resize:none;">'+escapeHtml(item.note||"")+'</textarea></div></div>';
   if(item.noteImage){
     html += '<div style="position:relative;display:inline-block;margin-bottom:14px;">'+
       '<img src="'+escapeHtml(item.noteImage)+'" alt="" style="max-width:130px;max-height:130px;border-radius:12px;display:block;border:1px solid var(--border);">'+
@@ -1063,7 +1261,7 @@ function editItemSheetHtml(){
   }
   html += '<button class="btn btn-secondary btn-block" id="remove-item-btn">Remove from list</button>';
   html += '<p class="helper-text" style="margin:6px 0 0;text-align:center;">Stays in Browse so you can add it again later.</p>';
-  html += '<div class="link-row"><button class="link-btn" id="delete-item-btn" style="color:#A32E2E;">Delete this item permanently</button></div>';
+  html += '<div class="link-row"><button class="link-btn danger" id="delete-item-btn">Delete this item permanently</button></div>';
   var addedWhen = relTime(item.lastAddedAt);
   var addedName = personName(item.addedBy);
   if(addedWhen){
@@ -1086,7 +1284,10 @@ function flushNoteIfOpen(){
 function closeSheet(){
   stopActiveScan();
   flushNoteIfOpen();
-  S.sheet = null;
+  // Backing out of a photo scan returns to the item it was for, same as the
+  // Cancel button, instead of dropping back to the list.
+  var back = (S.sheet && S.sheet.type==="scan" && S.sheet.itemId && !S.sheet.result) ? {type:"editItem", itemId:S.sheet.itemId} : null;
+  S.sheet = back;
   render();
 }
 function bindSheet(){
@@ -1160,6 +1361,24 @@ function bindSheet(){
         navigator.clipboard.writeText(url).then(function(){ showToast("Link copied"); }).catch(function(){ showToast(url); });
       } else { showToast(url); }
     };
+    var nameForm = document.getElementById("my-name-form");
+    if(nameForm) nameForm.onsubmit = function(e){
+      e.preventDefault();
+      var newName = document.getElementById("my-name-input").value.trim();
+      if(!newName){ showToast("Enter a name"); return; }
+      if(newName===S.me){ showToast("That's already your name"); return; }
+      var people = (S.space.people||[]).map(function(p){ return p.uid===S.meUid ? {uid:p.uid, name:newName} : p; });
+      if(!people.some(function(p){ return p.uid===S.meUid; })) people.push({uid:S.meUid, name:newName});
+      Promise.all([
+        store.saveUserProfile(S.meUid, {displayName:newName}),
+        store.updateSpace(S.spaceCode, {people: people})
+      ]).then(function(){
+        S.me = newName;
+        store.updatePresence(S.spaceCode, S.meUid, S.me).catch(function(){});
+        showToast("You're now "+newName);
+        render();
+      }).catch(function(){ showToast("Couldn't update your name"); });
+    };
     if((b=document.getElementById("restore-starters-btn"))) b.onclick = function(){
       var existingKeys = S.items.map(function(it){ return it.nameKey; });
       store.addMissingDefaults(S.spaceCode, existingKeys).then(function(added){
@@ -1190,15 +1409,32 @@ function bindSheet(){
         store.setItemTags(S.spaceCode, item.id, tags).catch(function(){ showToast("Couldn't update tags"); });
       };
     });
+    var emojiEl = document.getElementById("item-emoji-input");
+    if(emojiEl){
+      emojiEl.onchange = function(){
+        var v = emojiEl.value.trim();
+        if(v === (item.emoji||"")) return;
+        store.setItemEmoji(S.spaceCode, item.id, v).catch(function(){ showToast("Couldn't save emoji"); });
+      };
+    }
     var rb = document.getElementById("remove-item-btn");
     if(rb) rb.onclick = function(){
+      var snapshot = {id:item.id, checked:false, note:item.note, noteImage:item.noteImage};
       store.removeFromList(S.spaceCode, item.id).catch(function(){ showToast("Couldn't remove that item"); });
       S.sheet=null; render();
+      showToast("Took "+item.name+" off the list", {label:"Undo", onClick:function(){
+        store.putBack(S.spaceCode, [snapshot]).catch(function(){ showToast("Couldn't undo that"); });
+      }});
     };
     var db2 = document.getElementById("delete-item-btn");
     if(db2) db2.onclick = function(){
+      // No confirm dialog; the toast's Undo is the safety net instead.
+      var copy = Object.assign({}, item); delete copy.id;
       store.deleteItem(S.spaceCode, item.id).catch(function(){ showToast("Couldn't delete that item"); });
       S.sheet=null; render();
+      showToast("Deleted "+item.name, {label:"Undo", onClick:function(){
+        store.restoreDeleted(S.spaceCode, item.id, copy).catch(function(){ showToast("Couldn't undo that"); });
+      }});
     };
     var scanBtn = document.getElementById("scan-photo-btn");
     if(scanBtn) scanBtn.onclick = function(){
@@ -1236,8 +1472,7 @@ function bindSheet(){
         }
       } else {
         var tags = S.filterStore ? [S.filterStore] : [];
-        var newId = slugify(name.toLowerCase());
-        store.createOrRestoreItem(S.spaceCode, name, tags, S.meUid).then(function(){
+        store.createOrRestoreItem(S.spaceCode, name, tags, S.meUid).then(function(newId){
           return store.setItemNoteImage(S.spaceCode, newId, image);
         }).catch(function(){ showToast("Couldn't add that item"); });
         showToast("Added "+name);
@@ -1273,11 +1508,15 @@ if("serviceWorker" in navigator && location.protocol !== "file:"){
     // when checking sw.js for changes; reg.update() forces an immediate
     // check; auto-reload on controllerchange applies an update as soon as
     // it activates, instead of requiring a manual reopen.
+    // Only reload when an *existing* worker is replaced; on the very first
+    // visit clients.claim() also fires controllerchange, and reloading a page
+    // the user just opened is a visible flash for nothing.
+    var hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).then(function(reg){
       reg.update();
       var reloaded = false;
       navigator.serviceWorker.addEventListener("controllerchange", function(){
-        if (reloaded) return;
+        if (reloaded || !hadController) return;
         reloaded = true;
         location.reload();
       });

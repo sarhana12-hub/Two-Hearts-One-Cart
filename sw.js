@@ -1,5 +1,17 @@
-const CACHE = 'two-hearts-one-cart-v2';
+const CACHE = 'two-hearts-one-cart-v3';
 const SHELL = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
+
+// Only the app shell and the pinned CDN scripts it imports belong in the
+// cache. Firestore's long-poll/WebChannel traffic, the Open Food Facts API and
+// product images are live data: caching every one of those responses used to
+// grow the cache without bound and could hand the Firestore SDK a stale,
+// unrelated response when offline.
+const CDN_HOSTS = ['www.gstatic.com', 'cdn.jsdelivr.net'];
+function shouldHandle(request) {
+  const url = new URL(request.url);
+  if (url.origin === self.location.origin) return true;
+  return CDN_HOSTS.includes(url.hostname) && /\.(m?js)$/.test(url.pathname);
+}
 
 // GitHub Pages serves everything with Cache-Control: max-age=600, which we
 // can't override (static host, no server config). `cache: 'no-store'` makes
@@ -23,10 +35,10 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// Network-first: always prefer the live version (talks to Firestore in real
-// time); fall back to the last cached copy only when the network fails.
+// Network-first: always prefer the live version; fall back to the last cached
+// copy only when the network fails.
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
+  if (e.request.method !== 'GET' || !shouldHandle(e.request)) return;
   e.respondWith(
     fetch(e.request, { cache: 'no-store' }).then((res) => {
       if (res && res.status === 200) {
