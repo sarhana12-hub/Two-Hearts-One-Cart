@@ -27,7 +27,20 @@ PWA, synced in real time through Firebase Firestore, hosted on GitHub Pages.
   on and the Cloud Function below is deployed.
 - **Offline**: Firestore's IndexedDB cache keeps the list readable and
   writable without signal; changes sync when you're back online.
+- **Gestures**: swipe a row right to check it off, left to take it off the
+  list (with Undo). Pull any sheet down to dismiss it.
 - **Themes**: follows the system, or pin light/dark in Settings.
+
+## Design system
+
+- **Type**: the platform font (SF Pro on iPhone). Body 16, item names 17/600,
+  secondary 15, captions 13, sheet titles 20, entry title 28. Inputs never go
+  below 16px, which is what stops Safari zooming on focus.
+- **Color**: cream `#FBF8F2` surface, coral `#FF5D7A` as the brand tint and
+  focus ring, raspberry `#D8365B` for filled controls with white text (4.6:1),
+  sage green for checked state, all defined as tokens with a dark set.
+- **Mark**: the cart-with-heart in `tools/make-assets.mjs` is the single
+  source for the header, entry screen, icons, and launch images.
 
 ## Files
 
@@ -37,6 +50,7 @@ PWA, synced in real time through Firebase Firestore, hosted on GitHub Pages.
 | `sw.js` | Service worker. Network-first for the shell, cache-first for pinned CDN libraries, hands-off for Firestore and other APIs. |
 | `manifest.json`, `icons/` | PWA install metadata. |
 | `functions/index.js` | Cloud Function: turns a nudge document into push notifications. |
+| `tools/make-assets.mjs` | Regenerates every icon and iOS launch image from the vector mark. |
 | `firebase.json`, `.firebaserc` | Firebase CLI config for deploying the function. |
 
 ## Developing
@@ -112,7 +126,5 @@ Roughly in order of value for a two-person household:
    last time, so the trip shows a running estimate.
 4. **Weekly rhythm.** Show "you usually buy this every ~9 days" on Browse items
    and gently surface what's due, computed from `lastDoneAt` history.
-5. **Item swipe gestures.** Swipe right to check, swipe left to take off,
-   as an alternative to the circle and the edit sheet. Needs direction
-   locking against vertical scroll, an edge dead-zone so iOS back-swipe
-   doesn't fight it, and a hold on re-renders while a finger is down.
+5. **Shared bundles across lists.** Once bundles exist, let a household keep
+   one catalog across several lists (weekly, party, cabin).
