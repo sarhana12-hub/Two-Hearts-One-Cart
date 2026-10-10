@@ -106,7 +106,7 @@
     .app-top,.bottom-bar{background:color-mix(in srgb, var(--bg) 84%, transparent);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);}
   }
   .app-header{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 8px 18px;}
-  .app-title{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:700;letter-spacing:-.02em;flex:1;min-width:0;white-space:nowrap;}
+  .app-title{display:flex;align-items:center;gap:8px;font-size:20px;font-weight:700;letter-spacing:-.02em;flex:1;min-width:0;white-space:nowrap;}
   .app-title .mark{font-size:21px;flex:0 0 auto;}
   .app-title .title-text{overflow:hidden;text-overflow:ellipsis;}
   .header-actions{display:flex;gap:0;flex:0 0 auto;color:var(--ink);}
@@ -1224,7 +1224,7 @@ function findExistingMatch(name, fuzzy){
 function appHtml(){
   var listCount = S.items.filter(function(it){ return it.status==="active"; }).length;
   var html = '<div class="app-top">';
-  html += '<div class="app-header"><div class="app-title"><span class="mark">🛒💗</span><span class="title-text">Two Hearts, One Cart</span></div>'+
+  html += '<div class="app-header"><div class="app-title"><span class="mark">🛒💗</span><span class="title-text">One Cart</span></div>'+
     '<div class="header-actions">'+
     '<button class="icon-btn" id="nudge-btn" aria-label="Nudge your partner">'+ICONS.send+'</button>'+
     '<button class="icon-btn" id="help-btn" aria-label="Help">'+ICONS.help+'</button>'+
