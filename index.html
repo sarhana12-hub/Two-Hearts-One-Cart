@@ -283,12 +283,6 @@ const firebaseConfig = {
   appId: "1:514216300410:web:88aa6bfa4951e67e6f90c3"
 };
 
-// Web Push certificate ("key pair") from Firebase console -> Project settings
-// -> Cloud Messaging -> Web configuration. Leave empty until the Cloud
-// Function in /functions is deployed: nudges then still appear inside the
-// app, just without a phone notification.
-const FCM_VAPID_KEY = "";
-
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 // Offline-first: Firestore keeps a local IndexedDB copy of the list, so it
@@ -433,7 +427,7 @@ function swipeHintWanted(){
 }
 function installTipHtml(){
   if(!IS_IOS || IS_STANDALONE) return "";
-  return '<div class="install-tip">'+ICONS.share+'<div><b>Make it an app.</b> Tap Share, then <b>Add to Home Screen</b>. You get full screen, a proper icon, and nudges as notifications.</div></div>';
+  return '<div class="install-tip">'+ICONS.share+'<div><b>Make it an app.</b> Tap Share, then <b>Add to Home Screen</b>. You get full screen, a proper icon, and a faster start.</div></div>';
 }
 
 var DEFAULT_STORES = ["Target", "Whole Foods", "Lunds & Byerlys", "Trader Joe's"];
@@ -734,11 +728,8 @@ var store = {
   saveUserProfile: function(uid, data){
     return setDoc(doc(dbase,"users",uid), data, {merge:true});
   },
-  saveFcmToken: function(uid, token){
-    return setDoc(doc(dbase,"users",uid), {fcmTokens: arrayUnion(token)}, {merge:true});
-  },
-  // A nudge is a tiny doc the partner's app (and the Cloud Function, for the
-  // push) picks up. The function marks it sent; clients prune old ones.
+  // A nudge is a tiny doc the partner's app picks up and shows as a banner.
+  // Clients prune old ones.
   sendNudge: function(code, nudge){
     return addDoc(collection(dbase,"groceryLists",code,"nudges"), Object.assign({createdAt: serverTimestamp()}, nudge));
   },
@@ -921,7 +912,7 @@ var S = {
   spaceCode:null, loadingSpace:false, space:{stores:[], people:[]}, items:[],
   view:"list", filterStore:null, searchQuery:"", sheet:null, toast:null, renamingStore:null, renamingMe:false,
   presence:[], offline: (typeof navigator !== "undefined" && navigator.onLine === false), justChecked:null,
-  nudges:[], pushEnabled:false, pushBusy:false, gesturing:false, renderPending:false, browseQuery:""
+  nudges:[], gesturing:false, renderPending:false, browseQuery:""
 };
 function endGesture(){
   S.gesturing = false;
@@ -971,8 +962,7 @@ function markNudgeSeen(id){
   try{ localStorage.setItem("thoc_seen_nudges", JSON.stringify(seen.slice(-50))); }catch(e){}
 }
 // The newest nudge addressed to me from the last 3 hours that I haven't
-// dismissed. Shown as a banner inside the app; the push is the same thing
-// delivered when the app is closed.
+// dismissed, shown as a banner at the top of the list.
 function pendingNudge(){
   var seen = loadSeenNudges(), now = Date.now();
   var mine = S.nudges.filter(function(n){
@@ -1000,70 +990,9 @@ function sendNudge(message){
   if(!to.length){ showToast("Your partner hasn't joined yet"); return Promise.resolve(); }
   return store.sendNudge(S.spaceCode, {
     fromUid: S.meUid, fromName: S.me, toUids: to,
-    message: message, store: S.filterStore || null,
-    link: location.origin + location.pathname
+    message: message, store: S.filterStore || null
   }).then(function(){ showToast("Nudged "+partnerNames()+" 💌"); })
     .catch(function(){ showToast("Couldn't send that — try again"); });
-}
-
-/* ---------------- push notifications (FCM) ---------------- */
-function pushPermission(){ return ("Notification" in window) ? Notification.permission : "unsupported"; }
-function pushState(){
-  if(!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)){
-    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
-    var standalone = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
-    return (ios && !standalone) ? "needs_homescreen" : "unsupported";
-  }
-  if(!FCM_VAPID_KEY) return "not_configured";
-  if(Notification.permission==="denied") return "denied";
-  if(Notification.permission==="granted" && S.pushEnabled) return "on";
-  return "off";
-}
-var pushTokenPromise = null;
-function registerPushToken(){
-  if(pushTokenPromise) return pushTokenPromise;
-  var swReady = new Promise(function(resolve, reject){
-    var t = setTimeout(function(){ reject(new Error("sw_timeout")); }, 8000);
-    navigator.serviceWorker.ready.then(function(reg){ clearTimeout(t); resolve(reg); }, reject);
-  });
-  pushTokenPromise = import("https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js").then(function(m){
-    return m.isSupported().then(function(ok){
-      if(!ok) throw new Error("unsupported");
-      return swReady.then(function(reg){
-        return m.getToken(m.getMessaging(fbApp), {vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: reg});
-      });
-    });
-  }).then(function(token){
-    if(!token) throw new Error("no_token");
-    return store.saveFcmToken(S.meUid, token).then(function(){
-      S.pushEnabled = true;
-      try{ localStorage.setItem("thoc_push", "on"); }catch(e){}
-    });
-  });
-  pushTokenPromise.catch(function(){ pushTokenPromise = null; });
-  return pushTokenPromise;
-}
-function enablePush(){
-  if(S.pushBusy) return;
-  S.pushBusy = true; render();
-  var perm = ("Notification" in window) ? Notification.requestPermission() : Promise.resolve("unsupported");
-  Promise.resolve(perm).then(function(result){
-    if(result!=="granted") throw new Error(result);
-    return registerPushToken();
-  }).then(function(){
-    showToast("You'll get nudges on this device");
-  }).catch(function(err){
-    var why = err && err.message;
-    showToast(why==="denied" ? "Notifications are blocked for this site" : "Couldn't turn on notifications here");
-  }).then(function(){ S.pushBusy = false; render(); });
-}
-// Tokens rotate; refresh ours quietly on each open once the user opted in.
-function refreshPushIfEnabled(){
-  var on = false; try{ on = localStorage.getItem("thoc_push")==="on"; }catch(e){}
-  if(on && FCM_VAPID_KEY && pushPermission()==="granted" && S.meUid){
-    S.pushEnabled = true;
-    registerPushToken().catch(function(){});
-  }
 }
 
 var lastSyncErrorAt = 0;
@@ -1233,7 +1162,6 @@ function enterSpace(code){
     unsubs.push(store.subscribeItems(code, function(items){ S.items = items; renderPreservingInput(); }, syncError));
     unsubs.push(store.subscribePresence(code, function(list){ S.presence = list; renderPreservingInput(); }));
     unsubs.push(store.subscribeNudges(code, function(list){ S.nudges = list; pruneOldNudges(list); renderPreservingInput(); }));
-    refreshPushIfEnabled();
     startPresenceHeartbeat();
     render();
   }).catch(function(){
@@ -1737,26 +1665,6 @@ function scanSheetHtml(){
     '<button class="btn btn-secondary btn-block" id="scan-cancel-btn">Cancel</button>'+
     '</div></div>';
 }
-function pushStatusHtml(){
-  var st = pushState();
-  var html = '<div class="settings-section"><h3>Nudges on this device</h3>';
-  if(st==="on"){
-    html += '<div class="status-row"><span>🔔 On — you\'ll get a notification when '+escapeHtml(partnerNames()||"your partner")+' nudges you</span></div>';
-  } else if(st==="off"){
-    html += '<button class="btn btn-secondary btn-block" id="enable-push-btn"'+(S.pushBusy?' disabled':'')+'>'+(S.pushBusy?'Turning on…':'🔔 Turn on notifications')+'</button>'+
-      '<p class="helper-text" style="margin:6px 0 0;">Nudges always show up here while the app is open. Turn this on to get them as a phone notification too.</p>';
-  } else if(st==="denied"){
-    html += '<div class="status-row"><span>🔕 Notifications are blocked for this site — allow them in your browser or system settings, then reopen the app.</span></div>';
-  } else if(st==="needs_homescreen"){
-    html += '<div class="status-row"><span>📲 On iPhone, add this app to your Home Screen (Share → Add to Home Screen) and open it from there to get notifications.</span></div>';
-  } else if(st==="not_configured"){
-    html += '<div class="status-row"><span>Phone notifications aren\'t set up for this install yet — nudges still appear here while the app is open. (See README: Cloud Function + Web Push key.)</span></div>';
-  } else {
-    html += '<div class="status-row"><span>This browser doesn\'t support notifications — nudges still appear here while the app is open.</span></div>';
-  }
-  html += '</div>';
-  return html;
-}
 function nudgeSheetHtml(){
   var html = '<div class="sheet-backdrop'+sheetEnterClass()+'" id="sheet-backdrop"><div class="sheet">'+
     '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
@@ -1771,7 +1679,7 @@ function nudgeSheetHtml(){
       '<div class="code-box"><span class="mono">'+escapeHtml(S.spaceCode)+'</span><button class="link-btn" id="copy-code-btn">Copy</button></div>'+
       '<p class="helper-text">Share this code (or the link in Settings) so they can join.</p>';
   }
-  html += pushStatusHtml();
+  html += '<p class="helper-text" style="margin:0;">Nudges show up at the top of your partner\'s list the next time they have the app open.</p>';
   html += '</div></div>';
   return html;
 }
@@ -1789,7 +1697,7 @@ var HELP_TEXT = {
       "The bottom of that panel also shows who added the item and when, so you can tell at a glance whether it's still worth buying or just stale leftover.",
       "If your partner has the list open at the same time, you'll see a banner up top letting you know they're shopping right now.",
       "Quantities: type \"3 lemons\" or \"lemons x3\" to set a count, or use the +/- stepper on the item's panel. Counts show as a ×3 badge and, like notes, reset the next time the item is added.",
-      "The 💌 up top (and the Ask … anything else? link during a trip) nudges your partner: a quick message that shows up in their app, and as a phone notification if they've turned those on."
+      "The 💌 up top (and the Ask … anything else? link during a trip) nudges your partner: a quick message that shows up at the top of their list while they have the app open."
     ]
   },
   browse: {
@@ -1876,7 +1784,6 @@ function settingsSheetHtml(){
   });
   html += '</div>';
 
-  html += pushStatusHtml();
   if(installTipHtml()) html += '<div class="settings-section">'+installTipHtml().replace('margin:18px 0 0','margin:0')+'</div>';
 
   var theme = currentTheme();
@@ -2058,7 +1965,6 @@ function bindSheet(){
     document.querySelectorAll("[data-theme-pick]").forEach(function(el){
       el.onclick = function(){ applyTheme(el.getAttribute("data-theme-pick")); render(); };
     });
-    if((b=document.getElementById("enable-push-btn"))) b.onclick = enablePush;
     if((b=document.getElementById("copy-code-btn"))) b.onclick = function(){
       var code = S.spaceCode;
       if(navigator.clipboard && navigator.clipboard.writeText){
@@ -2160,8 +2066,6 @@ function bindSheet(){
         navigator.clipboard.writeText(code).then(function(){ showToast("Code copied"); }).catch(function(){ showToast(code); });
       } else { showToast(code); }
     };
-    var ep = document.getElementById("enable-push-btn");
-    if(ep) ep.onclick = enablePush;
   } else if(S.sheet.type==="scan"){
     var cancelBtn = document.getElementById("scan-cancel-btn");
     if(cancelBtn) cancelBtn.onclick = function(){

@@ -63,33 +63,3 @@ self.addEventListener('fetch', (e) => {
   // has its own offline cache.
 });
 
-// ---- Push notifications (partner nudges) ----
-// FCM delivers the Cloud Function's message as a JSON push payload. We show it
-// ourselves rather than loading the Firebase messaging SDK into the worker.
-self.addEventListener('push', (e) => {
-  let payload = {};
-  try { payload = e.data ? e.data.json() : {}; } catch (err) { payload = { notification: { body: e.data && e.data.text() } }; }
-  const n = payload.notification || {};
-  const d = payload.data || {};
-  const link = (payload.fcmOptions && payload.fcmOptions.link) || d.link || './';
-  e.waitUntil(self.registration.showNotification(n.title || 'Two Hearts, One Cart', {
-    body: n.body || d.message || 'Anything else?',
-    icon: n.icon || './icons/icon-192.png',
-    badge: './icons/icon-192.png',
-    tag: d.tag || 'nudge',
-    renotify: true,
-    data: { link },
-  }));
-});
-
-self.addEventListener('notificationclick', (e) => {
-  e.notification.close();
-  const target = new URL((e.notification.data && e.notification.data.link) || './', self.location.href).href;
-  e.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
-      const open = wins.find((w) => w.url.startsWith(self.registration.scope));
-      if (open) return open.focus();
-      return self.clients.openWindow(target);
-    })
-  );
-});
