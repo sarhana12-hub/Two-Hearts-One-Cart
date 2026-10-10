@@ -902,10 +902,6 @@ var store = {
   joinSpace: function(code, uid, name){
     return updateDoc(doc(dbase,"groceryLists",code), {people: arrayUnion({uid:uid, name:name})});
   },
-  renamePerson: function(code, people, uid, name){
-    var next = (people||[]).map(function(p){ return p.uid===uid ? {uid:uid, name:name} : p; });
-    return updateDoc(doc(dbase,"groceryLists",code), {people: next});
-  },
   updatePresence: function(code, uid, name){
     return setDoc(doc(dbase,"groceryLists",code,"presence",uid), {name:name, lastActive: serverTimestamp()}, {merge:true});
   },
@@ -945,8 +941,24 @@ function sheetEnterClass(){
 }
 
 /* ---------------- nudges ("anything else?") ---------------- */
-function partnerPeople(){ return (S.space.people||[]).filter(function(p){ return p.uid!==S.meUid; }); }
-function partnerNames(){ return partnerPeople().map(function(p){ return p.name; }).join(" & "); }
+// Anonymous sign-in is per browser storage, and on iPhone the Safari tab and
+// the Home Screen app are separate stores, so one person easily ends up with
+// two uids in `people`. Treat same-name entries as the same human: dedupe
+// for display, keep every uid for delivery (a nudge should reach all of
+// their devices), and never count my own other device as a partner.
+function sameName(a, b){ return String(a||"").trim().toLowerCase() === String(b||"").trim().toLowerCase(); }
+function isMe(uid){
+  if(uid===S.meUid) return true;
+  var name = personName(uid);
+  return !!(name && S.me && sameName(name, S.me));
+}
+function partnerPeople(){ return (S.space.people||[]).filter(function(p){ return !isMe(p.uid); }); }
+function uniquePeople(list){
+  var out = [];
+  (list||[]).forEach(function(p){ if(!out.some(function(q){ return sameName(q.name, p.name); })) out.push(p); });
+  return out;
+}
+function partnerNames(){ return uniquePeople(partnerPeople()).map(function(p){ return p.name; }).join(" & "); }
 function defaultNudgeMessage(){
   var anyChecked = S.items.some(function(it){ return it.status==="active" && it.checked; });
   if(anyChecked) return "Heading to checkout — anything else?";
@@ -964,7 +976,7 @@ function markNudgeSeen(id){
 function pendingNudge(){
   var seen = loadSeenNudges(), now = Date.now();
   var mine = S.nudges.filter(function(n){
-    if(n.fromUid===S.meUid || (n.toUids||[]).indexOf(S.meUid)===-1 || seen.indexOf(n.id)!==-1) return false;
+    if(isMe(n.fromUid) || (n.toUids||[]).indexOf(S.meUid)===-1 || seen.indexOf(n.id)!==-1) return false;
     var ms = (n.createdAt && n.createdAt.toMillis) ? n.createdAt.toMillis() : now;
     return now-ms < 3*3600e3;
   }).sort(function(a,b){
@@ -1212,9 +1224,10 @@ function enterSpace(code){
       // arrayUnion rather than read-modify-write: two partners joining at the
       // same moment used to be able to overwrite each other.
       store.joinSpace(code, S.meUid, S.me).catch(function(){});
-    } else if(mine.name !== S.me){
-      // Renamed while in another list; carry the new name over.
-      store.renamePerson(code, space.people, S.meUid, S.me).catch(function(){});
+    } else if(mine.name && mine.name !== S.me){
+      // Renamed from another device: the shared list wins, this device follows.
+      S.me = mine.name;
+      store.saveUserProfile(S.meUid, {displayName: mine.name}).catch(function(){});
     }
     unsubs.push(store.subscribeSpace(code, function(sp){ S.space = sp; renderPreservingInput(); }, syncError));
     unsubs.push(store.subscribeItems(code, function(items){ S.items = items; renderPreservingInput(); }, syncError));
@@ -1461,7 +1474,7 @@ function itemRowHtml(it, isHistory){
   if(tags.length && !isHistory) html += '<div class="item-tags">'+tags.map(function(t){return '<span class="tag-pill">'+escapeHtml(t)+'</span>';}).join("")+'</div>';
   if(isHistory){
     html += '<div class="item-meta">Bought '+escapeHtml(relTime(it.lastDoneAt))+(tags.length ? ' · '+escapeHtml(tags.join(", ")) : '')+'</div>';
-  } else if(it.addedBy && S.meUid && it.addedBy!==S.meUid){
+  } else if(it.addedBy && S.meUid && !isMe(it.addedBy)){
     // Your own adds need no label; your partner's get a little heart so you
     // can tell at a glance what they want.
     var who = personName(it.addedBy), when = relTime(it.lastAddedAt);
@@ -1856,7 +1869,11 @@ function settingsSheetHtml(){
   if(navigator.share){
     html += '<button class="btn btn-secondary btn-block" id="share-link-btn" style="margin-bottom:10px;">💌 Send an invite</button>';
   }
-  people.forEach(function(p){ html += '<div class="people-row">👤 '+escapeHtml(p.name)+(p.uid===S.meUid ? ' <span style="font-size:12px;">(you)</span>' : '')+'</div>'; });
+  uniquePeople(people).forEach(function(p){
+    var devices = people.filter(function(q){ return sameName(q.name, p.name); }).length;
+    html += '<div class="people-row">👤 '+escapeHtml(p.name)+(isMe(p.uid) ? ' <span style="font-size:12px;">(you)</span>' : '')+
+      (devices > 1 ? ' <span style="font-size:12px;">· '+devices+' devices</span>' : '')+'</div>';
+  });
   html += '</div>';
 
   html += pushStatusHtml();
@@ -2022,10 +2039,13 @@ function bindSheet(){
       var newName = document.getElementById("rename-me-input").value.trim();
       if(!newName || newName===S.me){ S.renamingMe=false; render(); return; }
       var code = S.spaceCode, uid = S.meUid, people = S.space.people||[];
+      var mineUids = people.filter(function(p){ return isMe(p.uid); }).map(function(p){ return p.uid; });
+      if(mineUids.indexOf(uid)===-1) mineUids.push(uid);
+      var newPeople = people.map(function(p){ return mineUids.indexOf(p.uid)!==-1 ? {uid:p.uid, name:newName} : p; });
       store.saveUserProfile(uid, {displayName:newName}).then(function(){
         S.me = newName;
         return Promise.all([
-          store.renamePerson(code, people, uid, newName),
+          store.updateSpace(code, {people: newPeople}),
           store.updatePresence(code, uid, newName)
         ]);
       }).then(function(){ showToast("You're now "+newName); })
