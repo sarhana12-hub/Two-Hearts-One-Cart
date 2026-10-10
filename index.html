@@ -8,7 +8,9 @@
 <link rel="icon" href="./icons/favicon-32.png" sizes="32x32">
 <link rel="icon" href="./icons/favicon-16.png" sizes="16x16">
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
-<meta name="theme-color" content="#FBF8F2">
+<meta name="theme-color" content="#FBF8F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1A1614" media="(prefers-color-scheme: dark)">
+<script>try{var t=localStorage.getItem("thoc_theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="One Cart">
@@ -16,7 +18,31 @@
   :root{
     --bg:#FBF8F2; --card:#FFFFFF; --ink:#2B2320; --ink-soft:#8A8078;
     --border:#ECE6DC; --accent:#FF5D7A; --accent-soft:#FFE3E8; --accent-ink:#8C1F37;
-    --done:#B9C9AE; --checked-green:#3F8557; --radius:16px; --shadow:0 1px 2px rgba(43,35,32,.06), 0 6px 20px rgba(43,35,32,.06);
+    --done:#B9C9AE; --checked-green:#3F8557; --danger:#A32E2E;
+    --toast-bg:#2B2320; --toast-ink:#FFFFFF; --backdrop:rgba(43,35,32,.4);
+    --radius:16px; --shadow:0 1px 2px rgba(43,35,32,.06), 0 6px 20px rgba(43,35,32,.06);
+    color-scheme:light;
+  }
+  /* Dark theme. Follows the system by default; Settings can pin light or dark
+     via data-theme on <html> (applied before first paint by the inline script
+     in <head>, so there's no flash). */
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1A1614; --card:#26211E; --ink:#F4EEE7; --ink-soft:#A69C93;
+      --border:#3A332E; --accent:#FF6B86; --accent-soft:#4A2531; --accent-ink:#FFB6C4;
+      --done:#58694F; --checked-green:#8CCB9A; --danger:#FF8A80;
+      --toast-bg:#F4EEE7; --toast-ink:#1A1614; --backdrop:rgba(0,0,0,.55);
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.3);
+      color-scheme:dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1A1614; --card:#26211E; --ink:#F4EEE7; --ink-soft:#A69C93;
+    --border:#3A332E; --accent:#FF6B86; --accent-soft:#4A2531; --accent-ink:#FFB6C4;
+    --done:#58694F; --checked-green:#8CCB9A; --danger:#FF8A80;
+    --toast-bg:#F4EEE7; --toast-ink:#1A1614; --backdrop:rgba(0,0,0,.55);
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.3);
+    color-scheme:dark;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -25,20 +51,20 @@
     font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     -webkit-font-smoothing:antialiased;
     min-height:100dvh;
-    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
   }
   .shell{max-width:480px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;}
   button{font:inherit;touch-action:manipulation;}
   .check-circle,.item-row{touch-action:manipulation;}
-  input{font:inherit;}
-  textarea{font:inherit;}
+  input,textarea{font:inherit;}
   .btn{border:none;border-radius:999px;padding:13px 20px;font-weight:600;cursor:pointer;transition:transform .1s;}
   .btn:active{transform:scale(.97);}
   .btn-primary{background:var(--accent);color:#fff;}
   .btn-secondary{background:var(--card);color:var(--ink);border:1px solid var(--border);}
+  .btn-danger{background:var(--danger);color:#fff;}
   .btn-block{width:100%;display:block;}
   .btn[disabled]{opacity:.55;}
   .link-btn{background:none;border:none;color:var(--accent-ink);font-weight:600;cursor:pointer;padding:8px;}
+  .link-btn.danger{color:var(--danger);}
   .icon-btn{background:none;border:none;cursor:pointer;padding:8px;border-radius:10px;color:var(--ink);display:flex;align-items:center;justify-content:center;}
   .icon-btn:active{background:var(--accent-soft);}
   .field{margin-bottom:14px;}
@@ -49,29 +75,28 @@
   }
   .field input:focus, .text-input:focus{outline:2px solid var(--accent);outline-offset:1px;}
   .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.5px;}
-  .err-box{background:#FDECEC;color:#A32E2E;padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:12px;}
   .helper-text{color:var(--ink-soft);font-size:14px;margin:0 0 18px;}
 
   /* onboarding / auth */
-  .onboard{padding:24px 22px 40px;flex:1;display:flex;flex-direction:column;}
+  .onboard{padding:calc(24px + env(safe-area-inset-top)) 22px calc(40px + env(safe-area-inset-bottom));flex:1;display:flex;flex-direction:column;}
   .onboard-hero{text-align:center;margin:6vh 0 28px;}
   .onboard-hero .mark{font-size:52px;line-height:1;margin-bottom:14px;}
   .onboard-hero h1{font-size:26px;margin:0 0 6px;}
   .onboard-hero p{color:var(--ink-soft);margin:0;}
-  .onboard-actions{display:flex;flex-direction:column;gap:10px;margin-top:auto;}
-  .back-row{margin-bottom:6px;}
-  .divider-row{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--ink-soft);font-size:12px;}
-  .divider-row::before,.divider-row::after{content:"";flex:1;height:1px;background:var(--border);}
   .link-row{text-align:center;margin-top:10px;}
 
   /* app shell */
+  .app-top{position:sticky;top:0;z-index:5;background:var(--bg);padding-top:env(safe-area-inset-top);}
   .app-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 10px;}
   .app-title{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:700;}
   .app-title .mark{font-size:22px;}
   .presence-banner{margin:0 18px 10px;padding:8px 12px;border-radius:12px;background:var(--accent-soft);color:var(--accent-ink);font-size:13px;font-weight:600;}
+  .offline-pill{margin:0 18px 10px;padding:8px 12px;border-radius:12px;border:1px dashed var(--border);color:var(--ink-soft);font-size:13px;font-weight:600;}
   .tabs{display:flex;gap:6px;padding:0 18px 10px;}
   .tab-btn{flex:1;padding:10px 0;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--ink-soft);font-weight:600;cursor:pointer;}
   .tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .tab-count{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:999px;font-size:11px;line-height:18px;background:var(--accent-soft);color:var(--accent-ink);vertical-align:1px;}
+  .tab-btn.active .tab-count{background:rgba(255,255,255,.28);color:#fff;}
 
   .chip-row{display:flex;gap:8px;overflow-x:auto;padding:2px 18px 10px;scrollbar-width:none;}
   .chip-row::-webkit-scrollbar{display:none;}
@@ -79,7 +104,7 @@
   .chip.active{background:var(--accent);border-color:var(--accent);color:#fff;}
   .chip.quick{background:var(--accent-soft);border-color:var(--accent-soft);color:var(--accent-ink);}
   .chip.quick:active{transform:scale(.96);}
-  .chip-grid{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 90px;}
+  .chip-grid{display:flex;flex-wrap:wrap;gap:8px;padding:2px 0 24px;}
   .section-label{padding:6px 18px 4px;font-size:12px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px;}
   .suggest-list{display:flex;flex-direction:column;gap:6px;padding:0 18px 12px;}
   .suggest-row{text-align:left;padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--ink);font-weight:600;font-size:14px;cursor:pointer;}
@@ -89,13 +114,19 @@
   .add-row input{flex:1;}
   .add-row .btn{padding:13px 18px;}
 
-  .list{flex:1;overflow-y:auto;padding:0 18px 100px;}
+  .list{flex:1;padding:0 18px calc(24px + env(safe-area-inset-bottom));}
   .empty-state{text-align:center;color:var(--ink-soft);padding:60px 20px;}
   .empty-state .mark{font-size:40px;display:block;margin-bottom:10px;}
 
-  .item-row{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:8px;cursor:pointer;}
-  .check-circle{flex:0 0 auto;width:26px;height:26px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;margin-top:1px;background:#fff;}
+  .item-row{display:flex;align-items:flex-start;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:8px;cursor:pointer;transition:opacity .2s,transform .1s;}
+  .item-row:active{transform:scale(.99);}
+  .item-row.is-checked{opacity:.72;}
+  .check-circle{flex:0 0 auto;width:26px;height:26px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;margin-top:1px;background:var(--card);position:relative;transition:background .15s,border-color .15s;}
+  /* Invisible halo so a thumb can hit the circle without hitting the row. */
+  .check-circle::before{content:"";position:absolute;inset:-11px;border-radius:50%;}
   .check-circle.done{background:var(--done);border-color:var(--done);color:#fff;}
+  .check-circle.pop{animation:pop .28s ease-out;}
+  @keyframes pop{0%{transform:scale(.6);}60%{transform:scale(1.18);}100%{transform:scale(1);}}
   .item-body{flex:1;min-width:0;}
   .item-name{font-weight:600;word-break:break-word;}
   .item-name.done{text-decoration:line-through;color:var(--ink-soft);}
@@ -104,17 +135,23 @@
   .item-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
   .tag-pill{font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent-soft);padding:3px 8px;border-radius:999px;}
   .item-meta{font-size:12px;color:var(--ink-soft);margin-top:3px;}
-  .row-action{flex:0 0 auto;}
-  .bottom-bar{padding:10px 18px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--bg);}
+  .bottom-bar{position:sticky;bottom:0;z-index:4;padding:10px 18px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--bg);}
+  .trip-progress{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:8px;}
+  .trip-bar{flex:1;height:6px;border-radius:3px;background:var(--border);overflow:hidden;}
+  .trip-bar span{display:block;height:100%;border-radius:3px;background:var(--checked-green);transition:width .3s;}
 
   /* sheet overlay */
-  .sheet-backdrop{position:fixed;inset:0;background:rgba(43,35,32,.4);display:flex;align-items:flex-end;z-index:50;}
+  .sheet-backdrop{position:fixed;inset:0;background:var(--backdrop);display:flex;align-items:flex-end;z-index:50;}
   .sheet{position:relative;background:var(--bg);width:100%;max-width:480px;margin:0 auto;border-radius:20px 20px 0 0;padding:18px 20px calc(20px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;}
+  .sheet-backdrop.sheet-enter{animation:fadeIn .2s ease-out;}
+  .sheet-backdrop.sheet-enter .sheet{animation:sheetUp .3s cubic-bezier(.2,.8,.2,1);}
+  @keyframes fadeIn{from{opacity:0;}}
+  @keyframes sheetUp{from{transform:translateY(40px);}}
   .sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px;}
   .sheet h2{font-size:18px;margin:0 0 14px;padding-right:30px;}
   .sheet-close{position:absolute;top:14px;right:14px;font-size:22px;line-height:1;color:var(--ink-soft);}
   .store-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
-  .store-tag-toggle{padding:9px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-weight:600;font-size:13px;}
+  .store-tag-toggle{padding:9px 14px;border-radius:999px;border:1px solid var(--border);background:var(--card);color:var(--ink);cursor:pointer;font-weight:600;font-size:13px;}
   .store-tag-toggle.on{background:var(--accent);border-color:var(--accent);color:#fff;}
   .store-manage-row{display:flex;align-items:center;justify-content:space-between;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;}
   .settings-section{margin-bottom:22px;}
@@ -122,8 +159,15 @@
   .code-box{display:flex;align-items:center;justify-content:space-between;background:var(--accent-soft);border-radius:12px;padding:12px 14px;margin-bottom:8px;}
   .code-box .mono{font-size:18px;font-weight:700;color:var(--accent-ink);}
   .people-row{display:flex;align-items:center;gap:8px;padding:6px 0;color:var(--ink-soft);}
-  .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;z-index:80;box-shadow:var(--shadow);}
+  .toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--toast-bg);color:var(--toast-ink);padding:10px 18px;border-radius:999px;font-size:13px;z-index:80;box-shadow:var(--shadow);display:flex;align-items:center;gap:14px;max-width:calc(100% - 32px);white-space:nowrap;}
+  .toast span{overflow:hidden;text-overflow:ellipsis;}
+  .toast-action{background:none;border:none;color:var(--accent);font-weight:700;cursor:pointer;padding:0;font-size:13px;}
+  .toast.toast-enter{animation:toastIn .25s ease-out;}
+  @keyframes toastIn{from{opacity:0;transform:translate(-50%,8px);}}
   .loading-screen{flex:1;display:flex;align-items:center;justify-content:center;color:var(--ink-soft);}
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important;transition:none !important;}
+  }
 </style>
 </head>
 <body>
@@ -135,7 +179,8 @@ import {
   setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
+  getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
   collection, serverTimestamp, increment, arrayUnion, arrayRemove, writeBatch, deleteField
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -150,7 +195,16 @@ const firebaseConfig = {
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
-const dbase = getFirestore(fbApp);
+// Offline-first: Firestore keeps a local IndexedDB copy of the list, so it
+// opens instantly and keeps working in a store with no signal; writes queue
+// up and sync once the connection is back. Falls back to memory-only if the
+// browser refuses (private mode, storage full).
+let dbase;
+try {
+  dbase = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+} catch (e) {
+  dbase = getFirestore(fbApp);
+}
 setPersistence(auth, browserLocalPersistence).catch(function(){});
 
 /* ---------------- utils ---------------- */
@@ -159,15 +213,57 @@ function escapeHtml(s){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
   });
 }
+function cleanItemName(s){ return String(s||"").trim().replace(/\s+/g," "); }
 function slugify(s){
   var v = String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
   return v || ("item-" + Math.random().toString(36).slice(2,8));
 }
+// Toasts re-render without stealing focus or wiping half-typed text, and can
+// carry one action (used for Undo). Actions get a longer stay.
 var toastTimer=null;
-function showToast(msg){
-  S.toast = msg; render();
+function showToast(msg, action){
+  S.toast = {msg: msg, action: action||null};
+  renderPreservingInput();
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(function(){ S.toast=null; render(); }, 2200);
+  toastTimer = setTimeout(function(){ S.toast=null; renderPreservingInput(); }, action ? 6000 : 2200);
+}
+function toastHtml(){
+  var t = S.toast;
+  var cls = t.entered ? "" : " toast-enter";
+  t.entered = true;
+  return '<div class="toast'+cls+'" role="status"><span>'+escapeHtml(t.msg)+'</span>'+
+    (t.action ? '<button class="toast-action" id="toast-action-btn">'+escapeHtml(t.action.label)+'</button>' : '')+'</div>';
+}
+function bindToast(){
+  var tb = document.getElementById("toast-action-btn");
+  if(!tb) return;
+  tb.onclick = function(){
+    var action = S.toast && S.toast.action;
+    clearTimeout(toastTimer); S.toast = null;
+    if(action) action.run();
+    render();
+  };
+}
+
+/* ---------------- theme ---------------- */
+function currentTheme(){
+  try{ var t = localStorage.getItem("thoc_theme"); return (t==="light"||t==="dark") ? t : "auto"; }catch(e){ return "auto"; }
+}
+function applyTheme(t){
+  try{ if(t==="auto") localStorage.removeItem("thoc_theme"); else localStorage.setItem("thoc_theme", t); }catch(e){}
+  if(t==="auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", t);
+  syncThemeColor();
+}
+// Keep the browser chrome (status bar / PWA title bar) the same color as the
+// page background, whichever theme is in effect.
+function syncThemeColor(){
+  var bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  if(!bg) return;
+  document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){ m.setAttribute("content", bg); });
+}
+if(window.matchMedia){
+  try{ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", syncThemeColor); }catch(e){}
 }
 var CODE_WORDS = ["MILK","EGGS","BREAD","APPLE","PASTA","BASIL","MANGO","THYME","OLIVE","HONEY","PEACH","LEMON","QUINOA","GRAPE","ONION","BERRY","CHIVE","MELON"];
 function genCode(){
@@ -175,7 +271,10 @@ function genCode(){
   var suf = Math.random().toString(36).slice(2,5).toUpperCase();
   return w+"-"+suf;
 }
-function normCode(s){ return String(s||"").trim().toUpperCase().replace(/\s+/g,""); }
+function normCode(s){
+  var v = String(s||"").trim().toUpperCase().replace(/\s+/g,"").replace(/\//g,"");
+  return (v==="." || v==="..") ? "" : v;
+}
 function shareUrl(code){
   var base = location.origin + location.pathname.replace(/index\.html$/, "");
   return base + "?join=" + encodeURIComponent(code);
@@ -252,6 +351,92 @@ var STARTER_ITEMS = [
 ];
 var EMOJI_MAP = {};
 STARTER_ITEMS.forEach(function(it){ EMOJI_MAP[it.name.toLowerCase()] = it.emoji; });
+
+// Keyword -> emoji for anything typed that isn't a starter item. Multi-word
+// phrases come first so "sweet potato" wins over "potato" and "ice cream"
+// over "cream". Matched on whole words (with an optional plural), so "pear"
+// doesn't light up on "pearl onions"... well, it does, but "ham" won't match
+// "shampoo". Best-effort decoration only; never blocks anything.
+var EMOJI_KEYWORDS = [
+  ["sweet potato","🍠"],["ice cream","🍦"],["peanut butter","🥜"],["hot sauce","🌶️"],["tortilla chip","🌽"],
+  ["bell pepper","🫑"],["green bean","🫛"],["black pepper","🧂"],["ginger ale","🥤"],["paper towel","🧻"],
+  ["toilet paper","🧻"],["trash bag","🗑️"],["garbage bag","🗑️"],["olive oil","🫒"],["cream cheese","🧀"],
+  ["sour cream","🥛"],["whipped cream","🍦"],["coconut milk","🥥"],["almond milk","🥛"],["oat milk","🥛"],
+  ["soy milk","🥛"],["hot dog","🌭"],["orange juice","🧃"],["apple juice","🧃"],["greek yogurt","🥣"],
+  ["cottage cheese","🧀"],["goat cheese","🧀"],["string cheese","🧀"],["frozen pizza","🍕"],["lip balm","💄"],
+  ["cat food","🐱"],["dog food","🐶"],["cat litter","🐱"],["dish soap","🧴"],["hand soap","🧼"],["body wash","🧴"],
+  ["dryer sheet","🧺"],["sparkling water","🫧"],["ground beef","🥩"],["ground turkey","🦃"],["chicken breast","🍗"],
+  ["chicken thigh","🍗"],["pork chop","🥩"],["pepper jack","🧀"],["colby jack","🧀"],["monterey jack","🧀"],
+  ["maple syrup","🥞"],["baking soda","🧁"],["baking powder","🧁"],["brown sugar","🍬"],["sea salt","🧂"],
+  ["red wine","🍷"],["white wine","🍷"],["baby food","🍼"],["aluminum foil","✨"],["plastic wrap","✨"],
+  ["ziploc","✨"],["sandwich bag","✨"],["light bulb","💡"],["lightbulb","💡"],["air freshener","🌬️"],
+  ["banana","🍌"],["avocado","🥑"],["apple","🍎"],["onion","🧅"],["garlic","🧄"],["carrot","🥕"],["spinach","🥬"],
+  ["kale","🥬"],["lettuce","🥬"],["cabbage","🥬"],["arugula","🥬"],["celery","🥬"],["broccoli","🥦"],
+  ["cauliflower","🥦"],["tomato","🍅"],["cucumber","🥒"],["pickle","🥒"],["zucchini","🥒"],["lemon","🍋"],
+  ["lime","🟢"],["strawberry","🍓"],["blueberry","🫐"],["grape","🍇"],["watermelon","🍉"],["melon","🍈"],
+  ["cantaloupe","🍈"],["orange","🍊"],["tangerine","🍊"],["clementine","🍊"],["mandarin","🍊"],["pear","🍐"],
+  ["peach","🍑"],["cherry","🍒"],["cherries","🍒"],["kiwi","🥝"],["pineapple","🍍"],["mango","🥭"],
+  ["coconut","🥥"],["eggplant","🍆"],["potato","🥔"],["yam","🍠"],["corn","🌽"],["mushroom","🍄"],
+  ["pepper","🫑"],["chili","🌶️"],["jalapeno","🌶️"],["jalapeño","🌶️"],["pea","🫛"],["edamame","🫛"],["ginger","🫚"],
+  ["bean","🫘"],["lentil","🫘"],["chickpea","🫘"],["olive","🫒"],["basil","🌿"],["parsley","🌿"],["cilantro","🌱"],
+  ["mint","🌿"],["dill","🌿"],["thyme","🌿"],["rosemary","🌿"],["oregano","🌿"],["herb","🌿"],["asparagus","🌿"],
+  ["salad","🥗"],["almond","🥜"],["peanut","🥜"],["cashew","🥜"],["walnut","🥜"],["pecan","🥜"],["pistachio","🥜"],
+  ["nut","🥜"],["chestnut","🌰"],["milk","🥛"],["cream","🥛"],["kefir","🥛"],["yogurt","🥣"],["cheese","🧀"],
+  ["cheddar","🧀"],["mozzarella","🧀"],["parmesan","🧀"],["brie","🧀"],["feta","🧀"],["gouda","🧀"],["swiss","🧀"],
+  ["gruyere","🧀"],["butter","🧈"],["margarine","🧈"],["egg","🥚"],["chicken","🍗"],["turkey","🦃"],["beef","🥩"],
+  ["steak","🥩"],["pork","🍖"],["ham","🍖"],["lamb","🍖"],["ribs","🍖"],["bacon","🥓"],["sausage","🌭"],
+  ["bratwurst","🌭"],["salami","🥓"],["pepperoni","🍕"],["fish","🐟"],["salmon","🐟"],["tuna","🐟"],["cod","🐟"],
+  ["tilapia","🐟"],["halibut","🐟"],["shrimp","🦐"],["prawn","🦐"],["crab","🦀"],["lobster","🦞"],["oyster","🦪"],
+  ["clam","🦪"],["mussel","🦪"],["scallop","🦪"],["squid","🦑"],["calamari","🦑"],["sushi","🍣"],["tofu","🍲"],
+  ["bread","🍞"],["loaf","🍞"],["toast","🍞"],["bagel","🥯"],["croissant","🥐"],["baguette","🥖"],["tortilla","🫓"],
+  ["pita","🫓"],["naan","🫓"],["flatbread","🫓"],["pretzel","🥨"],["pancake","🥞"],["waffle","🧇"],["muffin","🧁"],
+  ["cupcake","🧁"],["cake","🍰"],["pie","🥧"],["cookie","🍪"],["donut","🍩"],["doughnut","🍩"],["brownie","🍫"],
+  ["rice","🍚"],["quinoa","🍚"],["pasta","🍝"],["spaghetti","🍝"],["noodle","🍝"],["penne","🍝"],["macaroni","🍝"],
+  ["lasagna","🍝"],["ramen","🍜"],["pho","🍜"],["cereal","🥣"],["oat","🥣"],["oatmeal","🥣"],["granola","🥣"],
+  ["flour","🌾"],["wheat","🌾"],["popcorn","🍿"],["cracker","🍘"],["chip","🥔"],["crisps","🥔"],["pizza","🍕"],
+  ["taco","🌮"],["burrito","🌯"],["sandwich","🥪"],["burger","🍔"],["fries","🍟"],["soup","🍲"],["broth","🍲"],
+  ["stock","🍲"],["stew","🍲"],["dumpling","🥟"],["curry","🍛"],["honey","🍯"],["syrup","🍯"],["jam","🫙"],
+  ["jelly","🫙"],["preserves","🫙"],["chocolate","🍫"],["candy","🍬"],["gum","🍬"],["marshmallow","🍬"],
+  ["popsicle","🍧"],["sorbet","🍧"],["gelato","🍦"],["salt","🧂"],["spice","🧂"],["cumin","🧂"],["paprika","🧂"],
+  ["cinnamon","🧂"],["seasoning","🧂"],["sugar","🍬"],["vanilla","🧁"],["yeast","🍞"],["oil","🫒"],["vinegar","🧴"],
+  ["ketchup","🍅"],["salsa","🍅"],["marinara","🍅"],["mustard","🌭"],["mayo","🥚"],["mayonnaise","🥚"],
+  ["sauce","🥫"],["dressing","🥗"],["canned","🥫"],["can","🥫"],["beans","🫘"],["hummus","🧆"],["falafel","🧆"],
+  ["guacamole","🥑"],["water","💧"],["seltzer","🫧"],["soda","🥤"],["cola","🥤"],["coke","🥤"],["pepsi","🥤"],
+  ["sprite","🥤"],["fresca","🍋"],["juice","🧃"],["lemonade","🍋"],["smoothie","🥤"],["coffee","☕"],["espresso","☕"],
+  ["tea","🍵"],["matcha","🍵"],["kombucha","🫙"],["beer","🍺"],["ale","🍺"],["lager","🍺"],["ipa","🍺"],["cider","🍻"],
+  ["wine","🍷"],["champagne","🍾"],["prosecco","🍾"],["whiskey","🥃"],["whisky","🥃"],["bourbon","🥃"],["vodka","🍸"],
+  ["gin","🍸"],["rum","🥃"],["tequila","🥃"],["cocktail","🍸"],["mixer","🍸"],["ice","🧊"],
+  ["tissue","🧻"],["napkin","🧻"],["wipes","🧻"],["soap","🧼"],["detergent","🧴"],["shampoo","🧴"],
+  ["conditioner","🧴"],["lotion","🧴"],["sunscreen","🧴"],["deodorant","🧴"],["cleaner","🧴"],["bleach","🧴"],
+  ["spray","🧴"],["toothpaste","🪥"],["toothbrush","🪥"],["floss","🦷"],["mouthwash","🦷"],["razor","🪒"],
+  ["sponge","🧽"],["trash","🗑️"],["garbage","🗑️"],["battery","🔋"],["batteries","🔋"],["bulb","💡"],["candle","🕯️"],
+  ["matches","🔥"],["lighter","🔥"],["charcoal","🔥"],["broom","🧹"],["mop","🧹"],["bucket","🪣"],["diaper","🍼"],
+  ["formula","🍼"],["baby","🍼"],["vitamin","💊"],["medicine","💊"],["ibuprofen","💊"],["tylenol","💊"],["advil","💊"],
+  ["aspirin","💊"],["allergy","💊"],["bandage","🩹"],["band-aid","🩹"],["cat","🐱"],["litter","🐱"],["dog","🐶"],
+  ["treats","🐾"],["flower","💐"],["bouquet","💐"],["plant","🪴"],["gift","🎁"],["card","💌"],["wrapping","🎁"],
+  ["pen","✏️"],["pencil","✏️"],["notebook","📝"],["tape","📎"],["makeup","💄"],["mascara","💄"],["nail","💅"],
+  ["sock","🧦"],["umbrella","☂️"],["sunglasses","🕶️"],["book","📚"],["magazine","📰"],["newspaper","📰"]
+];
+var EMOJI_RULES = EMOJI_KEYWORDS.map(function(pair){
+  var kw = pair[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return {re: new RegExp("(^|[^a-z])"+kw+"(s|es)?($|[^a-z])"), emoji: pair[1]};
+});
+var emojiGuessCache = {};
+function guessEmoji(name){
+  var key = String(name||"").toLowerCase().trim();
+  if(!key) return null;
+  if(EMOJI_MAP[key] !== undefined) return EMOJI_MAP[key];
+  if(emojiGuessCache[key] !== undefined) return emojiGuessCache[key];
+  var hit = null;
+  for(var i=0;i<EMOJI_RULES.length;i++){
+    if(EMOJI_RULES[i].re.test(key)){ hit = EMOJI_RULES[i].emoji; break; }
+  }
+  emojiGuessCache[key] = hit;
+  return hit;
+}
+// What to draw next to an item: its saved emoji, or a live guess for older
+// items that were created before guessing existed.
+function itemEmoji(it){ return it.emoji || guessEmoji(it.name); }
 
 // Best-effort "what would we actually call this" table, keyed by Open Food
 // Facts category tag (locale prefix like "en:" stripped). Covers common
@@ -340,7 +525,7 @@ function stopActiveScan(){
 }
 function startBarcodeScan(){
   var itemId = S.sheet.itemId; // present -> attach photo to this existing item; absent -> "add new item" mode
-  function goBack(){ S.sheet = itemId ? {type:"editItem", itemId:itemId} : null; render(); }
+  function goBack(){ if(itemId) openSheet({type:"editItem", itemId:itemId}); else { S.sheet = null; render(); } }
   function setStatus(msg){ var el = document.getElementById("scan-status"); if(el) el.textContent = msg; }
   loadZxing().then(function(){
     if(!(S.sheet && S.sheet.type==="scan")) return;
@@ -360,7 +545,7 @@ function startBarcodeScan(){
         .then(function(data){
           if(!data || data.status !== 1){ throw new Error("not_found"); }
           var img = data.product.image_front_url || data.product.image_url;
-          if(!img){ throw new Error("no_image"); }
+          if(!img || !/^https:\/\//.test(img)){ throw new Error("no_image"); }
           return {image: img, name: conciseNameFromProduct(data.product)};
         });
     }).then(function(found){
@@ -369,8 +554,9 @@ function startBarcodeScan(){
         showToast("Photo added");
         goBack();
       } else {
-        var existing = findExistingMatch(found.name);
-        S.sheet = {type:"scan", result:{name: found.name, image: found.image, matchedId: existing?existing.id:null, matchedName: existing?existing.name:null}};
+        var existing = findExistingMatch(found.name, true);
+        S.sheet = {type:"scan", entered: true,
+          result:{name: found.name, image: found.image, matchedId: existing?existing.id:null, matchedName: existing?existing.name:null}};
         render();
       }
     }).catch(function(err){
@@ -437,46 +623,67 @@ var store = {
   },
   updateSpace: function(code, patch){ return updateDoc(doc(dbase,"groceryLists",code), patch); },
   clearHistory: function(code){ return updateDoc(doc(dbase,"groceryLists",code), {historyClearedAt: serverTimestamp()}); },
-  subscribeSpace: function(code, cb){
-    return onSnapshot(doc(dbase,"groceryLists",code), function(snap){ if(snap.exists()) cb(snap.data()); }, function(){});
+  subscribeSpace: function(code, cb, onErr){
+    return onSnapshot(doc(dbase,"groceryLists",code), function(snap){ if(snap.exists()) cb(snap.data()); }, onErr||function(){});
   },
-  subscribeItems: function(code, cb){
+  subscribeItems: function(code, cb, onErr){
     return onSnapshot(collection(dbase,"groceryLists",code,"items"), function(snap){
       var out=[];
       snap.forEach(function(d){ out.push(Object.assign({id:d.id}, d.data())); });
       cb(out);
-    }, function(){});
+    }, onErr||function(){});
   },
-  createOrRestoreItem: function(code, name, storeTags, uid){
-    var nameKey = String(name||"").trim().toLowerCase();
+  // Resolves to the item's id. `extra` lets a caller attach fields (e.g. a
+  // scanned photo) in the same write instead of a racy follow-up update.
+  createOrRestoreItem: function(code, name, storeTags, uid, extra){
+    var cleanName = cleanItemName(name);
+    var nameKey = cleanName.toLowerCase();
     var id = slugify(nameKey);
     var ref = doc(dbase,"groceryLists",code,"items",id);
     var patch = {
-      name: String(name||"").trim(),
+      name: cleanName,
       nameKey: nameKey,
       storeTags: storeTags || [],
       status: "active",
+      checked: false,
+      note: deleteField(), noteImage: deleteField(),
       timesAdded: increment(1),
       addedBy: uid,
       createdAt: serverTimestamp(),
       lastAddedAt: serverTimestamp()
     };
-    if(EMOJI_MAP[nameKey]) patch.emoji = EMOJI_MAP[nameKey];
-    return setDoc(ref, patch, {merge:true});
+    var emoji = EMOJI_MAP[nameKey] !== undefined ? EMOJI_MAP[nameKey] : guessEmoji(cleanName);
+    if(emoji) patch.emoji = emoji;
+    Object.assign(patch, extra || {});
+    return setDoc(ref, patch, {merge:true}).then(function(){ return id; });
   },
+  // A fresh add from Browse/History/search: counts as a purchase intent and
+  // starts with a clean slate (last trip's note and photo don't carry over).
   restoreItem: function(code, id, uid){
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), {
-      status:"active", timesAdded: increment(1), lastAddedAt: serverTimestamp(), addedBy: uid
+      status:"active", checked:false, timesAdded: increment(1), lastAddedAt: serverTimestamp(), addedBy: uid,
+      note: deleteField(), noteImage: deleteField()
     });
+  },
+  // Undo for "move to history" / "take off list": put items back exactly as
+  // they were, without bumping counters or touching notes.
+  reactivateItems: function(code, ids, checked){
+    var batch = writeBatch(dbase);
+    ids.forEach(function(id){
+      batch.update(doc(dbase,"groceryLists",code,"items",id), {status:"active", checked: !!checked});
+    });
+    return batch.commit();
   },
   toggleChecked: function(code, id, checked){
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), {checked: checked});
   },
+  // Notes/photos are left in place here (so Undo is lossless) and cleared the
+  // next time the item is added instead - same thing from the user's side.
   moveCheckedToHistory: function(code, ids){
     var batch = writeBatch(dbase);
     ids.forEach(function(id){
       batch.update(doc(dbase,"groceryLists",code,"items",id), {
-        status:"done", checked:false, lastDoneAt: serverTimestamp(), note: deleteField(), noteImage: deleteField()
+        status:"done", checked:false, lastDoneAt: serverTimestamp()
       });
     });
     return batch.commit();
@@ -491,7 +698,7 @@ var store = {
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), url ? {noteImage: url} : {noteImage: deleteField()});
   },
   removeFromList: function(code, id){
-    return updateDoc(doc(dbase,"groceryLists",code,"items",id), {status:"suggested", checked:false, note: deleteField(), noteImage: deleteField()});
+    return updateDoc(doc(dbase,"groceryLists",code,"items",id), {status:"suggested", checked:false});
   },
   deleteItem: function(code, id){
     return deleteDoc(doc(dbase,"groceryLists",code,"items",id));
@@ -499,8 +706,32 @@ var store = {
   addStore: function(code, name){
     return updateDoc(doc(dbase,"groceryLists",code), {stores: arrayUnion(name)});
   },
-  removeStore: function(code, name){
-    return updateDoc(doc(dbase,"groceryLists",code), {stores: arrayRemove(name)});
+  // Store rename/remove touch the space doc plus every tagged item; one batch
+  // so a flaky connection can't leave half the tags pointing at an old name.
+  removeStore: function(code, name, items){
+    var batch = writeBatch(dbase);
+    batch.update(doc(dbase,"groceryLists",code), {stores: arrayRemove(name)});
+    items.forEach(function(it){
+      if((it.storeTags||[]).indexOf(name) === -1) return;
+      batch.update(doc(dbase,"groceryLists",code,"items",it.id), {storeTags: it.storeTags.filter(function(t){ return t!==name; })});
+    });
+    return batch.commit();
+  },
+  renameStore: function(code, oldName, newName, stores, items){
+    var batch = writeBatch(dbase);
+    batch.update(doc(dbase,"groceryLists",code), {stores: stores.map(function(st){ return st===oldName ? newName : st; })});
+    items.forEach(function(it){
+      if((it.storeTags||[]).indexOf(oldName) === -1) return;
+      batch.update(doc(dbase,"groceryLists",code,"items",it.id), {storeTags: it.storeTags.map(function(t){ return t===oldName ? newName : t; })});
+    });
+    return batch.commit();
+  },
+  joinSpace: function(code, uid, name){
+    return updateDoc(doc(dbase,"groceryLists",code), {people: arrayUnion({uid:uid, name:name})});
+  },
+  renamePerson: function(code, people, uid, name){
+    var next = (people||[]).map(function(p){ return p.uid===uid ? {uid:uid, name:name} : p; });
+    return updateDoc(doc(dbase,"groceryLists",code), {people: next});
   },
   updatePresence: function(code, uid, name){
     return setDoc(doc(dbase,"groceryLists",code,"presence",uid), {name:name, lastActive: serverTimestamp()}, {merge:true});
@@ -519,9 +750,28 @@ var S = {
   authReady:false,
   meUid:null, me:null,
   spaceCode:null, loadingSpace:false, space:{stores:[], people:[]}, items:[],
-  view:"list", filterStore:null, searchQuery:"", sheet:null, toast:null, renamingStore:null,
-  presence:[]
+  view:"list", filterStore:null, searchQuery:"", sheet:null, toast:null, renamingStore:null, renamingMe:false,
+  presence:[], offline: (typeof navigator !== "undefined" && navigator.onLine === false), justChecked:null
 };
+window.addEventListener("online", function(){ S.offline=false; renderPreservingInput(); });
+window.addEventListener("offline", function(){ S.offline=true; renderPreservingInput(); });
+document.addEventListener("keydown", function(e){ if(e.key==="Escape" && S.sheet) closeSheet(); });
+
+// Sheets slide in only on the render that first shows them; later re-renders
+// (every Firestore snapshot redraws the sheet) must not replay the animation.
+function openSheet(sheet){ S.sheet = sheet; render(); }
+function sheetEnterClass(){
+  if(!S.sheet || S.sheet.entered) return "";
+  S.sheet.entered = true;
+  return " sheet-enter";
+}
+
+var lastSyncErrorAt = 0;
+function syncError(){
+  if(Date.now()-lastSyncErrorAt < 60000) return;
+  lastSyncErrorAt = Date.now();
+  showToast("Couldn't sync — check your connection");
+}
 var unsubs = [];
 function teardownSubs(){ unsubs.forEach(function(u){ try{u();}catch(e){} }); unsubs=[]; stopPresenceHeartbeat(); }
 
@@ -570,9 +820,18 @@ function render(){
   } else {
     html = '<div class="shell">'+appHtml()+'</div>';
   }
-  if(S.toast) html += '<div class="toast">'+escapeHtml(S.toast)+'</div>';
+  if(S.toast) html += toastHtml();
   if(S.sheet) html += sheetHtml();
+  // The barcode scanner streams into #scan-video; a re-render would replace
+  // it with a blank element and the preview would go black. Re-adopt the live
+  // one instead.
+  var liveVideo = document.getElementById("scan-video");
   app.innerHTML = html;
+  if(liveVideo && liveVideo.srcObject){
+    var newVideo = document.getElementById("scan-video");
+    if(newVideo) newVideo.replaceWith(liveVideo);
+  }
+  bindToast();
 
   if(!S.authReady) return;
   if(!S.spaceCode || S.loadingSpace){ if(!S.loadingSpace) bindEntry(); return; }
@@ -590,6 +849,10 @@ function renderPreservingInput(){
   if(active && (active.tagName==="INPUT" || active.tagName==="TEXTAREA") && active.id){
     save = {id:active.id, value:active.value, start:active.selectionStart, end:active.selectionEnd};
   }
+  // The note textarea saves on a debounce, so it can hold unsaved text while
+  // unfocused (user just tapped a store tag). Keep that text through the redraw.
+  var noteEl = document.getElementById("item-note-input");
+  var pendingNote = (noteEl && (!save || save.id!=="item-note-input")) ? noteEl.value : null;
   render();
   if(save){
     var el = document.getElementById(save.id);
@@ -598,6 +861,10 @@ function renderPreservingInput(){
       el.focus();
       try{ el.setSelectionRange(save.start, save.end); }catch(e){}
     }
+  }
+  if(pendingNote !== null){
+    var n2 = document.getElementById("item-note-input");
+    if(n2 && n2.value !== pendingNote) n2.value = pendingNote;
   }
 }
 
@@ -608,6 +875,8 @@ function entryHtml(){
   html += '<form id="entry-form">';
   if(!S.me){
     html += '<div class="field"><label for="entry-name">Your name</label><input type="text" id="entry-name" placeholder="e.g. Sam" autocomplete="off" enterkeyhint="next"></div>';
+  } else {
+    html += '<p class="helper-text" style="margin:0 0 14px;">Joining as <b>'+escapeHtml(S.me)+'</b> · <button class="link-btn" id="entry-change-name" type="button" style="padding:0;">Not you?</button></p>';
   }
   html += '<div class="field"><label for="entry-code">List code</label><input type="text" id="entry-code" class="mono" placeholder="e.g. OURLIST" autocapitalize="characters" autocomplete="off" enterkeyhint="done" value="'+escapeHtml(URL_JOIN_CODE||"")+'"></div>';
   html += '<button class="btn btn-primary btn-block" id="entry-go" type="submit">Join list</button>';
@@ -622,6 +891,7 @@ function bindEntry(){
   if(!S.me && nameEl){ setTimeout(function(){ nameEl.focus(); },0); }
   var b;
   if((b=document.getElementById("entry-generate"))) b.onclick = function(){ codeEl.value = genCode(); codeEl.focus(); };
+  if((b=document.getElementById("entry-change-name"))) b.onclick = function(){ S.me = null; render(); };
   var form = document.getElementById("entry-form");
   if(form) form.onsubmit = function(e){
     e.preventDefault();
@@ -642,13 +912,17 @@ function enterSpace(code){
   render();
   store.ensureSpace(code).then(function(space){
     S.space = space; S.loadingSpace = false;
-    var already = (space.people||[]).some(function(p){ return p.uid===S.meUid; });
-    if(!already){
-      var people = (space.people||[]).concat([{uid:S.meUid, name:S.me}]);
-      store.updateSpace(code, {people: people});
+    var mine = (space.people||[]).find(function(p){ return p.uid===S.meUid; });
+    if(!mine){
+      // arrayUnion rather than read-modify-write: two partners joining at the
+      // same moment used to be able to overwrite each other.
+      store.joinSpace(code, S.meUid, S.me).catch(function(){});
+    } else if(mine.name !== S.me){
+      // Renamed while in another list; carry the new name over.
+      store.renamePerson(code, space.people, S.meUid, S.me).catch(function(){});
     }
-    unsubs.push(store.subscribeSpace(code, function(sp){ S.space = sp; renderPreservingInput(); }));
-    unsubs.push(store.subscribeItems(code, function(items){ S.items = items; renderPreservingInput(); }));
+    unsubs.push(store.subscribeSpace(code, function(sp){ S.space = sp; renderPreservingInput(); }, syncError));
+    unsubs.push(store.subscribeItems(code, function(items){ S.items = items; renderPreservingInput(); }, syncError));
     unsubs.push(store.subscribePresence(code, function(list){ S.presence = list; renderPreservingInput(); }));
     startPresenceHeartbeat();
     render();
@@ -667,8 +941,14 @@ function matchesFilter(it){
   if(tags.length===0) return true;
   return tags.indexOf(S.filterStore) !== -1;
 }
-function activeItems(){
-  return S.items.filter(function(it){ return it.status==="active" && matchesFilter(it); })
+// `ignoreSearch` gives the whole (store-filtered) list, for the trip progress
+// bar; the rendered rows additionally narrow to the search query so typing
+// "milk" shows the Milk already on the list, not just catalog suggestions.
+function activeItems(ignoreSearch){
+  var q = ignoreSearch ? "" : (S.searchQuery||"").trim().toLowerCase();
+  return S.items.filter(function(it){
+      return it.status==="active" && matchesFilter(it) && (!q || (it.name||"").toLowerCase().indexOf(q) !== -1);
+    })
     .sort(function(a,b){
       var ca = a.checked ? 1 : 0, cb = b.checked ? 1 : 0;
       return ca !== cb ? ca-cb : (a.name||"").localeCompare(b.name||"");
@@ -705,15 +985,19 @@ function browseAlphabetical(){
 function searchSuggestions(query){
   var q = query.trim().toLowerCase();
   if(!q) return [];
-  return browseCandidates().filter(function(it){ return it.name.toLowerCase().indexOf(q) !== -1; }).slice(0,8);
+  return browseCandidates().filter(function(it){ return it.name.toLowerCase().indexOf(q) !== -1; }).slice(0,6);
 }
-// Exact nameKey match first; otherwise, only auto-match when there's exactly
-// one plausible candidate, since guessing wrong is worse than treating it as
-// a new item.
-function findExistingMatch(name){
-  var key = name.trim().toLowerCase();
-  var existing = S.items.find(function(it){ return it.nameKey===key; });
-  if(!existing){
+// Exact match on nameKey, or on the document id the name would slug to (so
+// "Red-Onion" lands on "Red Onion" instead of silently overwriting it).
+// `fuzzy` additionally accepts a single substring candidate - only used for
+// barcode scans, where the match is shown to the user before anything is
+// written. Typing "Potatoes" must never quietly add "Sweet Potatoes".
+function findExistingMatch(name, fuzzy){
+  var key = cleanItemName(name).toLowerCase();
+  var id = slugify(key);
+  var existing = S.items.find(function(it){ return it.nameKey===key; }) ||
+                 S.items.find(function(it){ return it.id===id; });
+  if(!existing && fuzzy){
     var matches = searchSuggestions(name);
     if(matches.length === 1) existing = matches[0];
   }
@@ -721,7 +1005,9 @@ function findExistingMatch(name){
 }
 
 function appHtml(){
-  var html = '<div class="app-header"><div class="app-title"><span class="mark">🛒💗</span>Two Hearts, One Cart</div>'+
+  var listCount = S.items.filter(function(it){ return it.status==="active"; }).length;
+  var html = '<div class="app-top">';
+  html += '<div class="app-header"><div class="app-title"><span class="mark">🛒💗</span>Two Hearts, One Cart</div>'+
     '<div style="display:flex;gap:2px;">'+
     '<button class="icon-btn" id="help-btn" aria-label="Help">❓</button>'+
     '<button class="icon-btn" id="settings-btn" aria-label="Settings">⚙️</button>'+
@@ -730,8 +1016,11 @@ function appHtml(){
   if(partners.length){
     html += '<div class="presence-banner">🛒 '+partners.map(function(p){ return escapeHtml(p.name||"Your partner"); }).join(" & ")+' shopping now</div>';
   }
+  if(S.offline){
+    html += '<div class="offline-pill">📵 Offline — changes will sync when you\'re back online</div>';
+  }
   html += '<div class="tabs">'+
-    '<button class="tab-btn'+(S.view==="list"?" active":"")+'" id="tab-list">List</button>'+
+    '<button class="tab-btn'+(S.view==="list"?" active":"")+'" id="tab-list">List'+(listCount ? '<span class="tab-count">'+listCount+'</span>' : '')+'</button>'+
     '<button class="tab-btn'+(S.view==="browse"?" active":"")+'" id="tab-browse">Browse</button>'+
     '<button class="tab-btn'+(S.view==="history"?" active":"")+'" id="tab-history">History</button>'+
     '</div>';
@@ -755,24 +1044,41 @@ function appHtml(){
     if(suggestions.length){
       html += '<div class="suggest-list">';
       suggestions.forEach(function(it){
-        html += '<button class="suggest-row" data-quickadd="'+escapeHtml(it.id)+'">'+(it.emoji?escapeHtml(it.emoji)+' ':'')+escapeHtml(it.name)+'</button>';
+        var em = itemEmoji(it);
+        html += '<button class="suggest-row" data-quickadd="'+escapeHtml(it.id)+'">'+(em?escapeHtml(em)+' ':'')+escapeHtml(it.name)+'</button>';
       });
       html += '</div>';
     }
+    html += '</div>'; // .app-top
 
     var items = activeItems();
+    var q = (S.searchQuery||"").trim();
     html += '<div class="list">';
     if(!items.length){
-      html += '<div class="empty-state"><span class="mark">🧺</span>'+(S.filterStore ? "Nothing tagged for "+escapeHtml(S.filterStore)+" right now." : "Your list is empty. Search above or browse common items!")+'</div>';
+      var emptyMsg;
+      if(q) emptyMsg = suggestions.length ? 'Nothing on your list matches "'+escapeHtml(q)+'" — tap a match above, or Add to create it.' : 'Nothing matches "'+escapeHtml(q)+'" — tap Add to create it.';
+      else if(S.filterStore) emptyMsg = "Nothing tagged for "+escapeHtml(S.filterStore)+" right now.";
+      else emptyMsg = "Your list is empty. Search above or browse common items!";
+      html += '<div class="empty-state"><span class="mark">🧺</span>'+emptyMsg+'</div>';
     } else {
       items.forEach(function(it){ html += itemRowHtml(it, false); });
     }
     html += '</div>';
-    var checkedN = items.filter(function(it){ return it.checked; }).length;
-    if(checkedN){
-      html += '<div class="bottom-bar"><button class="btn btn-primary btn-block" id="move-to-history-btn">Move '+checkedN+' purchased item'+(checkedN===1?"":"s")+' to history</button></div>';
+    var allActive = S.items.filter(function(it){ return it.status==="active"; });
+    var allChecked = allActive.filter(function(it){ return it.checked; }).length;
+    if(allChecked){
+      var tripItems = activeItems(true);
+      var tripChecked = tripItems.filter(function(it){ return it.checked; }).length;
+      var pct = tripItems.length ? Math.round(tripChecked / tripItems.length * 100) : 0;
+      var allDone = allChecked === allActive.length;
+      html += '<div class="bottom-bar">'+
+        '<div class="trip-progress"><span>'+tripChecked+' of '+tripItems.length+' in the cart</span><div class="trip-bar" aria-hidden="true"><span style="width:'+pct+'%;"></span></div></div>'+
+        '<button class="btn btn-primary btn-block" id="move-to-history-btn">'+
+          (allDone ? '🎉 Done shopping — move everything to history' : 'Move '+allChecked+' purchased item'+(allChecked===1?"":"s")+' to history')+
+        '</button></div>';
     }
   } else if(S.view==="browse"){
+    html += '</div>'; // .app-top
     var favorites = favoriteCandidates();
     var allBrowse = browseAlphabetical();
     html += '<div class="list" style="padding-top:8px;">';
@@ -782,18 +1088,21 @@ function appHtml(){
       if(favorites.length){
         html += '<div class="section-label">⭐ Favorites</div><div class="chip-grid" style="padding-bottom:14px;">';
         favorites.forEach(function(it){
-          html += '<button class="chip quick" data-quickadd="'+escapeHtml(it.id)+'">+ '+(it.emoji?escapeHtml(it.emoji)+' ':'')+escapeHtml(it.name)+'</button>';
+          var em = itemEmoji(it);
+          html += '<button class="chip quick" data-quickadd="'+escapeHtml(it.id)+'">+ '+(em?escapeHtml(em)+' ':'')+escapeHtml(it.name)+'</button>';
         });
         html += '</div>';
       }
       html += '<div class="section-label">All items</div><div class="chip-grid">';
       allBrowse.forEach(function(it){
-        html += '<button class="chip quick" data-quickadd="'+escapeHtml(it.id)+'">+ '+(it.emoji?escapeHtml(it.emoji)+' ':'')+escapeHtml(it.name)+'</button>';
+        var em = itemEmoji(it);
+        html += '<button class="chip quick" data-quickadd="'+escapeHtml(it.id)+'">+ '+(em?escapeHtml(em)+' ':'')+escapeHtml(it.name)+'</button>';
       });
       html += '</div>';
     }
     html += '</div>';
   } else {
+    html += '</div>'; // .app-top
     var done = doneItems();
     if(done.length){
       html += '<div style="padding:6px 18px 0;text-align:right;"><button class="link-btn" id="clear-history-btn" style="padding:4px 0;">Clear history</button></div>';
@@ -812,17 +1121,26 @@ function appHtml(){
 function itemRowHtml(it, isHistory){
   var tags = (it.storeTags||[]);
   var checked = !isHistory && !!it.checked;
-  var html = '<div class="item-row" data-item="'+escapeHtml(it.id)+'" data-action="'+(isHistory?"restore":"edit")+'">';
+  var em = itemEmoji(it);
+  var html = '<div class="item-row'+(checked?" is-checked":"")+'" data-item="'+escapeHtml(it.id)+'" data-action="'+(isHistory?"restore":"edit")+'">';
   if(isHistory){
-    html += '<div class="check-circle done" data-action="restore" data-item="'+escapeHtml(it.id)+'">+</div>';
+    html += '<div class="check-circle done" role="button" aria-label="Add '+escapeHtml(it.name)+' back to list" data-action="restore" data-item="'+escapeHtml(it.id)+'">+</div>';
   } else {
-    html += '<div class="check-circle'+(checked?" done":"")+'" data-action="toggle-check" data-item="'+escapeHtml(it.id)+'">'+(checked?"✓":"")+'</div>';
+    var pop = (S.justChecked===it.id && checked) ? " pop" : "";
+    html += '<div class="check-circle'+(checked?" done":"")+pop+'" role="button" aria-pressed="'+(checked?"true":"false")+'" aria-label="Check off '+escapeHtml(it.name)+'" data-action="toggle-check" data-item="'+escapeHtml(it.id)+'">'+(checked?"✓":"")+'</div>';
   }
   html += '<div class="item-body">';
-  html += '<div class="item-name'+(isHistory?" done":"")+(checked?" checked":"")+'">'+(it.emoji?escapeHtml(it.emoji)+' ':'')+escapeHtml(it.name)+'</div>';
+  html += '<div class="item-name'+(isHistory?" done":"")+(checked?" checked":"")+'">'+(em?escapeHtml(em)+' ':'')+escapeHtml(it.name)+'</div>';
   if(it.note && !isHistory) html += '<div class="item-note">'+escapeHtml(it.note)+'</div>';
   if(tags.length) html += '<div class="item-tags">'+tags.map(function(t){return '<span class="tag-pill">'+escapeHtml(t)+'</span>';}).join("")+'</div>';
-  if(isHistory) html += '<div class="item-meta">Bought '+relTime(it.lastDoneAt)+'</div>';
+  if(isHistory){
+    html += '<div class="item-meta">Bought '+relTime(it.lastDoneAt)+'</div>';
+  } else if(it.addedBy && S.meUid && it.addedBy!==S.meUid){
+    // Your own adds need no label; your partner's get a little heart so you
+    // can tell at a glance what they want.
+    var who = personName(it.addedBy), when = relTime(it.lastAddedAt);
+    if(who) html += '<div class="item-meta">💗 '+escapeHtml(who)+' added'+(when ? ' · '+escapeHtml(when) : '')+'</div>';
+  }
   html += '</div>';
   html += '</div>';
   return html;
@@ -830,8 +1148,8 @@ function itemRowHtml(it, isHistory){
 
 function bindApp(){
   var b;
-  if((b=document.getElementById("settings-btn"))) b.onclick = function(){ S.sheet={type:"settings"}; render(); };
-  if((b=document.getElementById("help-btn"))) b.onclick = function(){ S.sheet={type:"help", tab:S.view}; render(); };
+  if((b=document.getElementById("settings-btn"))) b.onclick = function(){ openSheet({type:"settings"}); };
+  if((b=document.getElementById("help-btn"))) b.onclick = function(){ openSheet({type:"help", tab:S.view}); };
   if((b=document.getElementById("tab-list"))) b.onclick = function(){ S.view="list"; render(); };
   if((b=document.getElementById("tab-browse"))) b.onclick = function(){ S.view="browse"; S.searchQuery=""; render(); };
   if((b=document.getElementById("tab-history"))) b.onclick = function(){ S.view="history"; S.searchQuery=""; render(); };
@@ -859,8 +1177,9 @@ function bindApp(){
     if(!name) return;
     var existing = findExistingMatch(name);
     S.searchQuery = "";
-    if(existing){
-      if(existing.status==="active"){ showToast(existing.name+" is already on your list"); render(); return; }
+    if(existing && existing.status==="active"){
+      showToast(existing.name+" is already on your list");
+    } else if(existing){
       store.restoreItem(S.spaceCode, existing.id, S.meUid).catch(function(){ showToast("Couldn't add that item"); });
     } else {
       var tags = S.filterStore ? [S.filterStore] : [];
@@ -873,8 +1192,7 @@ function bindApp(){
   if(addForm) addForm.onsubmit = function(e){ e.preventDefault(); submitNewItem(); };
   if(input) input.oninput = function(){ S.searchQuery = input.value; renderPreservingInput(); };
   if((b=document.getElementById("scan-add-btn"))) b.onclick = function(){
-    S.sheet = {type:"scan"};
-    render();
+    openSheet({type:"scan"});
     startBarcodeScan();
   };
 
@@ -883,14 +1201,22 @@ function bindApp(){
       e.stopPropagation();
       var id = el.getAttribute("data-item");
       var item = S.items.find(function(it){ return it.id===id; });
-      store.toggleChecked(S.spaceCode, id, !(item && item.checked)).catch(function(){ showToast("Couldn't update that item"); });
+      var next = !(item && item.checked);
+      // Pop animation only for the circle just tapped on this device, and
+      // only for the next render or two - not every time the list redraws.
+      S.justChecked = next ? id : null;
+      setTimeout(function(){ if(S.justChecked===id) S.justChecked=null; }, 500);
+      if(next && navigator.vibrate){ try{ navigator.vibrate(8); }catch(err){} }
+      store.toggleChecked(S.spaceCode, id, next).catch(function(){ showToast("Couldn't update that item"); });
     };
   });
   if((b=document.getElementById("move-to-history-btn"))) b.onclick = function(){
     var ids = S.items.filter(function(it){ return it.status==="active" && it.checked; }).map(function(it){ return it.id; });
     if(!ids.length) return;
     store.moveCheckedToHistory(S.spaceCode, ids).then(function(){
-      showToast("Moved "+ids.length+" item"+(ids.length===1?"":"s")+" to history");
+      showToast("Moved "+ids.length+" item"+(ids.length===1?"":"s")+" to history", {label:"Undo", run:function(){
+        store.reactivateItems(S.spaceCode, ids, true).catch(function(){ showToast("Couldn't undo that"); });
+      }});
     }).catch(function(){ showToast("Couldn't update your list"); });
   };
   if((b=document.getElementById("clear-history-btn"))) b.onclick = function(){
@@ -903,7 +1229,7 @@ function bindApp(){
     row.onclick = function(){
       var id = row.getAttribute("data-item");
       var item = S.items.find(function(it){ return it.id===id; });
-      if(item) { S.sheet = {type:"editItem", itemId:id}; render(); }
+      if(item) openSheet({type:"editItem", itemId:id});
     };
   });
 }
@@ -919,7 +1245,7 @@ function sheetHtml(){
 function scanSheetHtml(){
   if(S.sheet.result){
     var r = S.sheet.result;
-    return '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
+    return '<div class="sheet-backdrop'+sheetEnterClass()+'" id="sheet-backdrop"><div class="sheet">'+
       '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
       '<div class="sheet-handle"></div><h2>Add scanned item</h2>'+
       '<div style="text-align:center;margin-bottom:14px;"><img src="'+escapeHtml(r.image)+'" alt="" style="max-width:140px;max-height:140px;border-radius:12px;border:1px solid var(--border);"></div>'+
@@ -931,7 +1257,7 @@ function scanSheetHtml(){
       '<button class="btn btn-primary btn-block" id="scan-add-confirm-btn">Add to list</button>'+
       '</div></div>';
   }
-  return '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
+  return '<div class="sheet-backdrop'+sheetEnterClass()+'" id="sheet-backdrop"><div class="sheet">'+
     '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
     '<div class="sheet-handle"></div><h2>Scan a barcode</h2>'+
     '<div style="background:#000;border-radius:12px;overflow:hidden;aspect-ratio:4/3;margin-bottom:12px;">'+
@@ -949,8 +1275,8 @@ var HELP_TEXT = {
       "Search or add a grocery finds matching items from your catalog as you type, so you can tap to add instantly. If nothing matches, hit Add to create a brand new item. Prefer to browse instead of typing? The Browse tab lets you scroll your whole catalog and tap anything to add it.",
       "The 📷 next to Add scans a barcode to add a new item — it suggests a short, generic name (Milk, not Organic Reduced Fat Milk 2%) and checks whether that already matches something in your catalog before creating anything new, so you don't end up with duplicate near-identical items. You can always edit the suggested name before confirming. Same hit-or-miss odds as the photo-scanning below.",
       "Tap the circle next to an item to check it off while you shop. Checked items get a green strikethrough and sink to the bottom, but stay visible so you can see what's in your cart.",
-      "Once you're done shopping, tap Move to history to archive everything you checked off.",
-      "Tap an item's name to add a note (quantity, brand, instructions) or tag which stores carry it. Only tag a store if the item is exclusive to it — an untagged item is assumed to be carried everywhere, so it'll keep showing up no matter which store filter is selected.",
+      "A progress bar at the bottom tracks how much of the trip is in the cart. Once you're done shopping, tap Move to history to archive everything you checked off — there's an Undo on the toast if you tapped too soon.",
+      "Tap an item's name to add a note (quantity, brand, instructions) or tag which stores carry it. Only tag a store if the item is exclusive to it — an untagged item is assumed to be carried everywhere, so it'll keep showing up no matter which store filter is selected. Items your partner added show a little 💗 with their name.",
       "From that same panel, Try scanning for a photo is a nice bonus when it hits — it looks up a product's barcode and pulls in a picture of exactly that item. It's genuinely hit-or-miss: reliable for national brands and Trader Joe's, spotty for smaller store brands, and it can't find fresh produce or most household items at all, since barcodes don't really exist for those. Treat a miss as normal, not a bug — just add a note instead. Like the note, a found photo clears once the item's checked off.",
       "The bottom of that panel also shows who added the item and when, so you can tell at a glance whether it's still worth buying or just stale leftover.",
       "If your partner has the list open at the same time, you'll see a banner up top letting you know they're shopping right now."
@@ -976,7 +1302,7 @@ var HELP_TEXT = {
 };
 function helpSheetHtml(){
   var info = HELP_TEXT[S.sheet.tab] || HELP_TEXT.list;
-  var html = '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
+  var html = '<div class="sheet-backdrop'+sheetEnterClass()+'" id="sheet-backdrop"><div class="sheet">'+
     '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
     '<div class="sheet-handle"></div><h2>'+escapeHtml(info.title)+'</h2>';
   info.body.forEach(function(p){ html += '<p class="helper-text">'+escapeHtml(p)+'</p>'; });
@@ -986,7 +1312,7 @@ function helpSheetHtml(){
 function settingsSheetHtml(){
   var stores = storesList();
   var people = S.space.people||[];
-  var html = '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
+  var html = '<div class="sheet-backdrop'+sheetEnterClass()+'" id="sheet-backdrop"><div class="sheet">'+
     '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
     '<div class="sheet-handle"></div><h2>Settings</h2>';
 
@@ -1012,13 +1338,36 @@ function settingsSheetHtml(){
     '<button class="btn btn-secondary" id="add-store-btn" type="submit">Add</button></form>';
   html += '</div>';
 
+  html += '<div class="settings-section"><h3>You</h3>';
+  if(S.renamingMe){
+    html += '<form class="store-manage-row" id="rename-me-form" style="gap:8px;">'+
+      '<input type="text" id="rename-me-input" class="text-input" value="'+escapeHtml(S.me||"")+'" style="flex:1;" autocomplete="off" maxlength="40">'+
+      '<button class="icon-btn" type="submit" aria-label="Save">✓</button>'+
+      '<button class="icon-btn" id="cancel-rename-me-btn" type="button" aria-label="Cancel">✕</button>'+
+      '</form>';
+  } else {
+    html += '<div class="store-manage-row"><span>👤 '+escapeHtml(S.me||"")+'</span>'+
+      '<button class="icon-btn" id="rename-me-btn" aria-label="Change your name">✏️</button></div>';
+  }
+  html += '</div>';
+
   html += '<div class="settings-section"><h3>Your shared list</h3>'+
     '<div class="code-box"><span class="mono">'+escapeHtml(S.spaceCode)+'</span><button class="link-btn" id="copy-code-btn">Copy</button></div>'+
     '<p class="helper-text" style="margin-bottom:10px;">Share this code so your partner can join the same list.</p>'+
     '<div class="code-box"><span class="mono" style="font-size:13px;word-break:break-all;">'+escapeHtml(shareUrl(S.spaceCode))+'</span><button class="link-btn" id="copy-link-btn" style="flex:0 0 auto;">Copy</button></div>'+
-    '<p class="helper-text" style="margin-bottom:6px;">Or send this link — opening it fills in the code automatically.</p>';
-  people.forEach(function(p){ html += '<div class="people-row">👤 '+escapeHtml(p.name)+'</div>'; });
+    '<p class="helper-text" style="margin-bottom:10px;">Or send this link — opening it fills in the code automatically.</p>';
+  if(navigator.share){
+    html += '<button class="btn btn-secondary btn-block" id="share-link-btn" style="margin-bottom:10px;">💌 Send an invite</button>';
+  }
+  people.forEach(function(p){ html += '<div class="people-row">👤 '+escapeHtml(p.name)+(p.uid===S.meUid ? ' <span style="font-size:12px;">(you)</span>' : '')+'</div>'; });
   html += '</div>';
+
+  var theme = currentTheme();
+  html += '<div class="settings-section"><h3>Appearance</h3><div class="store-list" style="margin-bottom:0;">'+
+    [["auto","Match system"],["light","☀️ Light"],["dark","🌙 Dark"]].map(function(opt){
+      return '<button class="store-tag-toggle'+(theme===opt[0]?" on":"")+'" data-theme-pick="'+opt[0]+'">'+opt[1]+'</button>';
+    }).join("")+
+    '</div></div>';
 
   html += '<div class="settings-section">'+
     '<button class="btn btn-secondary btn-block" id="restore-starters-btn">Add default stores &amp; new starter items</button>'+
@@ -1037,9 +1386,9 @@ function editItemSheetHtml(){
   if(!item){ S.sheet=null; return ""; }
   var stores = storesList();
   var tags = item.storeTags||[];
-  var html = '<div class="sheet-backdrop" id="sheet-backdrop"><div class="sheet">'+
+  var html = '<div class="sheet-backdrop'+sheetEnterClass()+'" id="sheet-backdrop"><div class="sheet">'+
     '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
-    '<div class="sheet-handle"></div><h2>'+(item.emoji?escapeHtml(item.emoji)+' ':'')+escapeHtml(item.name)+'</h2>';
+    '<div class="sheet-handle"></div><h2>'+(itemEmoji(item)?escapeHtml(itemEmoji(item))+' ':'')+escapeHtml(item.name)+'</h2>';
   html += '<div class="field"><label for="item-note-input">Note (quantity, brand, etc.)</label>'+
     '<textarea id="item-note-input" class="text-input" rows="2" placeholder="e.g. two cans, Goya brand" style="resize:none;">'+escapeHtml(item.note||"")+'</textarea></div>';
   if(item.noteImage){
@@ -1063,7 +1412,13 @@ function editItemSheetHtml(){
   }
   html += '<button class="btn btn-secondary btn-block" id="remove-item-btn">Remove from list</button>';
   html += '<p class="helper-text" style="margin:6px 0 0;text-align:center;">Stays in Browse so you can add it again later.</p>';
-  html += '<div class="link-row"><button class="link-btn" id="delete-item-btn" style="color:#A32E2E;">Delete this item permanently</button></div>';
+  if(S.sheet.confirmDelete){
+    html += '<button class="btn btn-danger btn-block" id="delete-item-btn" style="margin-top:14px;">Yes, delete '+escapeHtml(item.name)+' forever</button>'+
+      '<p class="helper-text" style="margin:6px 0 0;text-align:center;">Gone from Browse, Favorites and History too. This can\'t be undone.</p>'+
+      '<div class="link-row"><button class="link-btn" id="cancel-delete-btn">Keep it</button></div>';
+  } else {
+    html += '<div class="link-row"><button class="link-btn danger" id="delete-item-btn">Delete this item permanently</button></div>';
+  }
   var addedWhen = relTime(item.lastAddedAt);
   var addedName = personName(item.addedBy);
   if(addedWhen){
@@ -1074,19 +1429,27 @@ function editItemSheetHtml(){
   html += '</div></div>';
   return html;
 }
+// Notes save ~0.7s after typing pauses, plus right before anything else the
+// sheet does (tag toggle, remove, scan, close, app backgrounded). Saving on
+// blur instead would echo a re-render between mousedown and mouseup and
+// swallow the very click that caused the blur.
+var noteSaveTimer = null;
 function flushNoteIfOpen(){
+  clearTimeout(noteSaveTimer); noteSaveTimer = null;
   if(S.sheet && S.sheet.type==="editItem"){
     var noteEl = document.getElementById("item-note-input");
     var item = S.items.find(function(it){ return it.id===S.sheet.itemId; });
-    if(noteEl && item && noteEl.value !== (item.note||"")){
+    if(noteEl && item && noteEl.value.trim() !== (item.note||"")){
       store.setItemNote(S.spaceCode, item.id, noteEl.value.trim()).catch(function(){ showToast("Couldn't save note"); });
     }
   }
 }
+window.addEventListener("pagehide", flushNoteIfOpen);
+document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="hidden") flushNoteIfOpen(); });
 function closeSheet(){
   stopActiveScan();
   flushNoteIfOpen();
-  S.sheet = null;
+  S.sheet = null; S.renamingStore = null; S.renamingMe = false;
   render();
 }
 function bindSheet(){
@@ -1103,10 +1466,7 @@ function bindSheet(){
     document.querySelectorAll("[data-remove-store]").forEach(function(el){
       el.onclick = function(){
         var name = el.getAttribute("data-remove-store");
-        store.removeStore(S.spaceCode, name).catch(function(){ showToast("Couldn't remove that store"); });
-        S.items.filter(function(it){ return (it.storeTags||[]).indexOf(name) !== -1; }).forEach(function(it){
-          store.setItemTags(S.spaceCode, it.id, it.storeTags.filter(function(t){ return t!==name; })).catch(function(){});
-        });
+        store.removeStore(S.spaceCode, name, S.items).catch(function(){ showToast("Couldn't remove that store"); });
         if(S.filterStore===name){ S.filterStore=null; }
       };
     });
@@ -1124,13 +1484,7 @@ function bindSheet(){
         if(!newName || newName===oldName){ S.renamingStore=null; render(); return; }
         var exists = storesList().some(function(st){ return st.toLowerCase()===newName.toLowerCase() && st!==oldName; });
         if(exists){ showToast("That store name is already in use"); return; }
-        var newStores = storesList().map(function(st){ return st===oldName ? newName : st; });
-        var work = [store.updateSpace(S.spaceCode, {stores: newStores})];
-        S.items.filter(function(it){ return (it.storeTags||[]).indexOf(oldName) !== -1; }).forEach(function(it){
-          var newTags = it.storeTags.map(function(t){ return t===oldName ? newName : t; });
-          work.push(store.setItemTags(S.spaceCode, it.id, newTags));
-        });
-        Promise.all(work).catch(function(){ showToast("Couldn't rename that store"); });
+        store.renameStore(S.spaceCode, oldName, newName, storesList(), S.items).catch(function(){ showToast("Couldn't rename that store"); });
         if(S.filterStore===oldName){ S.filterStore=newName; }
         S.renamingStore=null;
         render();
@@ -1148,6 +1502,33 @@ function bindSheet(){
       var storeForm = document.getElementById("add-store-form");
       if(storeForm) storeForm.onsubmit = function(e){ e.preventDefault(); submitStore(); };
     }
+    if((b=document.getElementById("rename-me-btn"))) b.onclick = function(){
+      S.renamingMe = true; render();
+      setTimeout(function(){ var e=document.getElementById("rename-me-input"); if(e){ e.focus(); e.select(); } },0);
+    };
+    if((b=document.getElementById("cancel-rename-me-btn"))) b.onclick = function(){ S.renamingMe=false; render(); };
+    var renameMeForm = document.getElementById("rename-me-form");
+    if(renameMeForm) renameMeForm.onsubmit = function(e){
+      e.preventDefault();
+      var newName = document.getElementById("rename-me-input").value.trim();
+      if(!newName || newName===S.me){ S.renamingMe=false; render(); return; }
+      var code = S.spaceCode, uid = S.meUid, people = S.space.people||[];
+      store.saveUserProfile(uid, {displayName:newName}).then(function(){
+        S.me = newName;
+        return Promise.all([
+          store.renamePerson(code, people, uid, newName),
+          store.updatePresence(code, uid, newName)
+        ]);
+      }).then(function(){ showToast("You're now "+newName); })
+        .catch(function(){ showToast("Couldn't change your name — try again"); });
+      S.renamingMe=false; render();
+    };
+    if((b=document.getElementById("share-link-btn"))) b.onclick = function(){
+      navigator.share({title:"Two Hearts, One Cart", text:"Join our shared grocery list 🛒💗", url: shareUrl(S.spaceCode)}).catch(function(){});
+    };
+    document.querySelectorAll("[data-theme-pick]").forEach(function(el){
+      el.onclick = function(){ applyTheme(el.getAttribute("data-theme-pick")); render(); };
+    });
     if((b=document.getElementById("copy-code-btn"))) b.onclick = function(){
       var code = S.spaceCode;
       if(navigator.clipboard && navigator.clipboard.writeText){
@@ -1175,14 +1556,14 @@ function bindSheet(){
     var item = S.items.find(function(it){ return it.id===S.sheet.itemId; });
     var noteEl = document.getElementById("item-note-input");
     if(noteEl){
-      noteEl.onblur = function(){
-        if(noteEl.value !== (item.note||"")){
-          store.setItemNote(S.spaceCode, item.id, noteEl.value.trim()).catch(function(){ showToast("Couldn't save note"); });
-        }
+      noteEl.oninput = function(){
+        clearTimeout(noteSaveTimer);
+        noteSaveTimer = setTimeout(flushNoteIfOpen, 700);
       };
     }
     document.querySelectorAll("[data-tag]").forEach(function(el){
       el.onclick = function(){
+        flushNoteIfOpen();
         var tag = el.getAttribute("data-tag");
         var tags = (item.storeTags||[]).slice();
         var idx = tags.indexOf(tag);
@@ -1192,18 +1573,30 @@ function bindSheet(){
     });
     var rb = document.getElementById("remove-item-btn");
     if(rb) rb.onclick = function(){
-      store.removeFromList(S.spaceCode, item.id).catch(function(){ showToast("Couldn't remove that item"); });
+      var wasChecked = !!item.checked;
+      flushNoteIfOpen();
+      store.removeFromList(S.spaceCode, item.id).then(function(){
+        showToast("Took "+item.name+" off the list", {label:"Undo", run:function(){
+          store.reactivateItems(S.spaceCode, [item.id], wasChecked).catch(function(){ showToast("Couldn't undo that"); });
+        }});
+      }).catch(function(){ showToast("Couldn't remove that item"); });
       S.sheet=null; render();
     };
     var db2 = document.getElementById("delete-item-btn");
     if(db2) db2.onclick = function(){
-      store.deleteItem(S.spaceCode, item.id).catch(function(){ showToast("Couldn't delete that item"); });
+      // Two taps: the first swaps the link for a red confirm button.
+      if(!S.sheet.confirmDelete){ S.sheet.confirmDelete = true; renderPreservingInput(); return; }
+      clearTimeout(noteSaveTimer); noteSaveTimer = null;
+      store.deleteItem(S.spaceCode, item.id).then(function(){ showToast("Deleted "+item.name); })
+        .catch(function(){ showToast("Couldn't delete that item"); });
       S.sheet=null; render();
     };
+    var cancelDel = document.getElementById("cancel-delete-btn");
+    if(cancelDel) cancelDel.onclick = function(){ S.sheet.confirmDelete = false; renderPreservingInput(); };
     var scanBtn = document.getElementById("scan-photo-btn");
     if(scanBtn) scanBtn.onclick = function(){
-      S.sheet = {type:"scan", itemId:item.id};
-      render();
+      flushNoteIfOpen();
+      openSheet({type:"scan", itemId:item.id});
       startBarcodeScan();
     };
     var removeImgBtn = document.getElementById("remove-note-image-btn");
@@ -1214,16 +1607,20 @@ function bindSheet(){
     var cancelBtn = document.getElementById("scan-cancel-btn");
     if(cancelBtn) cancelBtn.onclick = function(){
       stopActiveScan();
-      S.sheet = S.sheet.itemId ? {type:"editItem", itemId:S.sheet.itemId} : null;
-      render();
+      if(S.sheet.itemId) openSheet({type:"editItem", itemId:S.sheet.itemId}); else { S.sheet = null; render(); }
     };
     var confirmBtn = document.getElementById("scan-add-confirm-btn");
     if(confirmBtn) confirmBtn.onclick = function(){
       var nameInput = document.getElementById("scan-add-name");
       var name = nameInput.value.trim();
       if(!name){ showToast("Enter a name"); return; }
-      var image = S.sheet.result.image;
-      var existing = findExistingMatch(name);
+      var r = S.sheet.result;
+      var image = r.image;
+      // Use the match the sheet showed only while the name is unchanged; an
+      // edited name gets exact matching, never a surprise fuzzy hit.
+      var existing = (r.matchedId && name.toLowerCase()===String(r.name).toLowerCase())
+        ? (S.items.find(function(it){ return it.id===r.matchedId; }) || null)
+        : findExistingMatch(name);
       if(existing){
         if(existing.status==="active"){
           store.setItemNoteImage(S.spaceCode, existing.id, image).catch(function(){});
@@ -1236,10 +1633,7 @@ function bindSheet(){
         }
       } else {
         var tags = S.filterStore ? [S.filterStore] : [];
-        var newId = slugify(name.toLowerCase());
-        store.createOrRestoreItem(S.spaceCode, name, tags, S.meUid).then(function(){
-          return store.setItemNoteImage(S.spaceCode, newId, image);
-        }).catch(function(){ showToast("Couldn't add that item"); });
+        store.createOrRestoreItem(S.spaceCode, name, tags, S.meUid, {noteImage: image}).catch(function(){ showToast("Couldn't add that item"); });
         showToast("Added "+name);
       }
       S.sheet = null;
@@ -1264,6 +1658,7 @@ onAuthStateChanged(auth, function(user){
     if(!URL_JOIN_CODE && last && S.me){ enterSpace(last); } else { render(); }
   }).catch(function(){ render(); });
 });
+syncThemeColor();
 render();
 
 /* ---------------- service worker ---------------- */

@@ -1,5 +1,7 @@
-const CACHE = 'two-hearts-one-cart-v2';
+const CACHE = 'two-hearts-one-cart-v3';
 const SHELL = ['./', './index.html', './manifest.json', './icons/icon-192.png', './icons/icon-512.png'];
+// Versioned, immutable library URLs (Firebase SDK, barcode scanner).
+const CDN_HOSTS = ['www.gstatic.com', 'cdn.jsdelivr.net'];
 
 // GitHub Pages serves everything with Cache-Control: max-age=600, which we
 // can't override (static host, no server config). `cache: 'no-store'` makes
@@ -23,17 +25,40 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
-// Network-first: always prefer the live version (talks to Firestore in real
-// time); fall back to the last cached copy only when the network fails.
+function putInCache(request, res) {
+  if (res && res.status === 200) {
+    const copy = res.clone();
+    caches.open(CACHE).then((c) => c.put(request, copy));
+  }
+  return res;
+}
+
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(
-    fetch(e.request, { cache: 'no-store' }).then((res) => {
-      if (res && res.status === 200) {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
-      }
-      return res;
-    }).catch(() => caches.match(e.request))
-  );
+  const url = new URL(e.request.url);
+
+  // Our own shell: network-first so the live version always wins, with the
+  // last cached copy as the offline fallback.
+  if (url.origin === self.location.origin) {
+    e.respondWith(
+      fetch(e.request, { cache: 'no-store' })
+        .then((res) => putInCache(e.request, res))
+        .catch(() => caches.match(e.request))
+    );
+    return;
+  }
+
+  // Pinned CDN libraries never change at a given URL: serve from cache for a
+  // fast start, fetch once when missing.
+  if (CDN_HOSTS.includes(url.hostname)) {
+    e.respondWith(
+      caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => putInCache(e.request, res)))
+    );
+    return;
+  }
+
+  // Everything else (Firestore/Auth channels, Open Food Facts, product
+  // photos) goes straight to the network: caching those is useless at best
+  // and, for Firestore's long-polling responses, actively harmful. Firestore
+  // has its own offline cache.
 });
