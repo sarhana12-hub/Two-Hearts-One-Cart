@@ -21,10 +21,9 @@ PWA, synced in real time through Firebase Firestore, hosted on GitHub Pages.
 - **Quantities** are a real field: type "3 lemons" or "lemons x3", or use
   the +/- stepper on the item's panel. Shows as a ×3 badge. Like notes, a
   count resets the next time the item is added.
-- **Nudges** ("anything else?"): the 💌 button, or the link in the bottom bar
-  during a trip, sends your partner a short message. It appears as a banner
-  in their app immediately, and as a phone notification if they turned those
-  on and the Cloud Function below is deployed.
+- **Nudges** ("anything else?"): the paper-plane button, or the link in the
+  bottom bar during a trip, sends your partner a short message that appears
+  as a banner at the top of their list while they have the app open.
 - **Offline**: Firestore's IndexedDB cache keeps the list readable and
   writable without signal; changes sync when you're back online.
 - **Gestures**: swipe a row right to check it off, left to take it off the
@@ -49,9 +48,7 @@ PWA, synced in real time through Firebase Firestore, hosted on GitHub Pages.
 | `index.html` | The whole app: styles, data layer, state, rendering, sheets. |
 | `sw.js` | Service worker. Network-first for the shell, cache-first for pinned CDN libraries, hands-off for Firestore and other APIs. |
 | `manifest.json`, `icons/` | PWA install metadata. |
-| `functions/index.js` | Cloud Function: turns a nudge document into push notifications. |
 | `tools/make-assets.mjs` | Regenerates every icon and iOS launch image from the vector mark. |
-| `firebase.json`, `.firebaserc` | Firebase CLI config for deploying the function. |
 
 ## Developing
 
@@ -74,44 +71,10 @@ document until the item is *re-added*, which is what makes Undo lossless.
 Nudge documents live at `groceryLists/{CODE}/nudges/{id}`:
 
 ```
-fromUid, fromName, toUids[], message, store, link, createdAt,
-status (set by the function: sent | failed | no-devices | no-recipients), sentCount, sentAt
+fromUid, fromName, toUids[], message, store, createdAt
 ```
 
-Device tokens for push live on the user document: `users/{uid}.fcmTokens[]`.
 Clients prune nudges older than 24 hours.
-
-## Turning on phone notifications
-
-Nudges work inside the app with no setup. For notifications when the app is
-closed, three one-time steps (the Firebase project must be on the Blaze plan
-for Cloud Functions; the free quota covers this comfortably):
-
-1. **Web Push key.** Firebase console → Project settings → Cloud Messaging →
-   Web configuration → *Generate key pair*. Paste the public key into
-   `FCM_VAPID_KEY` near the top of `index.html` and deploy the site.
-2. **Deploy the function.**
-   ```
-   npm install -g firebase-tools
-   firebase login
-   cd functions && npm install && cd ..
-   firebase deploy --only functions
-   ```
-3. **Firestore rules.** Make sure signed-in users can write their own user
-   doc and create nudges. If your rules are per-collection, add:
-   ```
-   match /users/{uid} {
-     allow read, write: if request.auth != null && request.auth.uid == uid;
-   }
-   match /groceryLists/{code}/nudges/{id} {
-     allow read, create, delete: if request.auth != null;
-   }
-   ```
-   (The function runs with admin credentials and is not subject to rules.)
-
-Then each partner taps 💌 → *Turn on notifications* on the device they
-carry to the store. On iPhone that only works from the Home Screen version
-of the app (iOS 16.4+), which the sheet explains.
 
 ## Ideas not built yet
 
