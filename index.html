@@ -12,7 +12,7 @@
 <meta name="theme-color" content="#1A1614" media="(prefers-color-scheme: dark)">
 <script>try{var t=localStorage.getItem("thoc_theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="One Cart">
 <style>
   :root{
@@ -20,6 +20,7 @@
     --border:#ECE6DC; --accent:#FF5D7A; --accent-soft:#FFE3E8; --accent-ink:#8C1F37;
     --done:#B9C9AE; --checked-green:#3F8557; --danger:#A32E2E;
     --toast-bg:#2B2320; --toast-ink:#FFFFFF; --backdrop:rgba(43,35,32,.4);
+    --seg-bg:#EDE6DA; --seg-shadow:0 1px 3px rgba(43,35,32,.14);
     --radius:16px; --shadow:0 1px 2px rgba(43,35,32,.06), 0 6px 20px rgba(43,35,32,.06);
     color-scheme:light;
   }
@@ -32,6 +33,7 @@
       --border:#3A332E; --accent:#FF6B86; --accent-soft:#4A2531; --accent-ink:#FFB6C4;
       --done:#58694F; --checked-green:#8CCB9A; --danger:#FF8A80;
       --toast-bg:#F4EEE7; --toast-ink:#1A1614; --backdrop:rgba(0,0,0,.55);
+      --seg-bg:#110E0D; --seg-shadow:0 1px 3px rgba(0,0,0,.5);
       --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.3);
       color-scheme:dark;
     }
@@ -41,17 +43,29 @@
     --border:#3A332E; --accent:#FF6B86; --accent-soft:#4A2531; --accent-ink:#FFB6C4;
     --done:#58694F; --checked-green:#8CCB9A; --danger:#FF8A80;
     --toast-bg:#F4EEE7; --toast-ink:#1A1614; --backdrop:rgba(0,0,0,.55);
+    --seg-bg:#110E0D; --seg-shadow:0 1px 3px rgba(0,0,0,.5);
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.3);
     color-scheme:dark;
   }
-  *{box-sizing:border-box;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
+  /* html carries the background so iOS rubber-banding shows the same color. */
+  html{background:var(--bg);}
   body{
     background:var(--bg); color:var(--ink);
     font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     -webkit-font-smoothing:antialiased;
     min-height:100dvh;
+    touch-action:manipulation;
+    -webkit-text-size-adjust:100%;
   }
+  /* Tappable things behave like controls, not text: no selection, no
+     long-press callout, no grey tap flash. */
+  .btn,.chip,.tab-btn,.item-row,.check-circle,.icon-btn,.suggest-row,.store-tag-toggle,.link-btn,.stepper,.toast{
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  }
+  svg.ic{width:22px;height:22px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+  svg.ic.sm{width:18px;height:18px;}
   .shell{max-width:480px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;}
   button{font:inherit;touch-action:manipulation;}
   .check-circle,.item-row{touch-action:manipulation;}
@@ -65,14 +79,15 @@
   .btn[disabled]{opacity:.55;}
   .link-btn{background:none;border:none;color:var(--accent-ink);font-weight:600;cursor:pointer;padding:8px;}
   .link-btn.danger{color:var(--danger);}
-  .icon-btn{background:none;border:none;cursor:pointer;padding:8px;border-radius:10px;color:var(--ink);display:flex;align-items:center;justify-content:center;}
+  .icon-btn{background:none;border:none;cursor:pointer;padding:9px;border-radius:12px;color:var(--ink);display:flex;align-items:center;justify-content:center;min-width:40px;min-height:40px;}
   .icon-btn:active{background:var(--accent-soft);}
   .field{margin-bottom:14px;}
   .field label{display:block;font-size:13px;color:var(--ink-soft);margin-bottom:6px;font-weight:600;}
   .field input, .text-input{
-    width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--border);
-    background:var(--card);color:var(--ink);
+    width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--border);
+    background:var(--card);color:var(--ink);font-size:16px;-webkit-appearance:none;appearance:none;
   }
+  .field input::placeholder, .text-input::placeholder{color:var(--ink-soft);opacity:.8;}
   .field input:focus, .text-input:focus{outline:2px solid var(--accent);outline-offset:1px;}
   .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.5px;}
   .helper-text{color:var(--ink-soft);font-size:14px;margin:0 0 18px;}
@@ -87,16 +102,23 @@
 
   /* app shell */
   .app-top{position:sticky;top:0;z-index:5;background:var(--bg);padding-top:env(safe-area-inset-top);}
-  .app-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 10px;}
-  .app-title{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:700;}
-  .app-title .mark{font-size:22px;}
+  @supports (backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px)){
+    .app-top,.bottom-bar{background:color-mix(in srgb, var(--bg) 84%, transparent);-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);}
+  }
+  .app-header{display:flex;align-items:center;justify-content:space-between;padding:12px 12px 8px 18px;}
+  .app-title{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:700;letter-spacing:-.02em;flex:1;min-width:0;white-space:nowrap;}
+  .app-title .mark{font-size:21px;flex:0 0 auto;}
+  .app-title .title-text{overflow:hidden;text-overflow:ellipsis;}
+  .header-actions{display:flex;gap:0;flex:0 0 auto;color:var(--ink);}
   .presence-banner{margin:0 18px 10px;padding:8px 12px;border-radius:12px;background:var(--accent-soft);color:var(--accent-ink);font-size:13px;font-weight:600;}
   .offline-pill{margin:0 18px 10px;padding:8px 12px;border-radius:12px;border:1px dashed var(--border);color:var(--ink-soft);font-size:13px;font-weight:600;}
-  .tabs{display:flex;gap:6px;padding:0 18px 10px;}
-  .tab-btn{flex:1;padding:10px 0;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--ink-soft);font-weight:600;cursor:pointer;}
-  .tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
-  .tab-count{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:999px;font-size:11px;line-height:18px;background:var(--accent-soft);color:var(--accent-ink);vertical-align:1px;}
-  .tab-btn.active .tab-count{background:rgba(255,255,255,.28);color:#fff;}
+  /* iOS-style segmented control */
+  .tabs{display:flex;padding:0 18px 10px;}
+  .seg{display:flex;flex:1;background:var(--seg-bg);border-radius:12px;padding:3px;}
+  .tab-btn{flex:1;padding:8px 0;border-radius:9px;border:none;background:transparent;color:var(--ink-soft);font-weight:600;font-size:14px;cursor:pointer;transition:background .15s,color .15s,box-shadow .15s;}
+  .tab-btn.active{background:var(--card);color:var(--ink);box-shadow:var(--seg-shadow);}
+  .tab-count{display:inline-block;min-width:18px;padding:0 5px;margin-left:5px;border-radius:999px;font-size:11px;line-height:18px;background:var(--accent-soft);color:var(--accent-ink);vertical-align:1px;font-variant-numeric:tabular-nums;}
+  .tab-btn.active .tab-count{background:var(--accent);color:#fff;}
 
   .chip-row{display:flex;gap:8px;overflow-x:auto;padding:2px 18px 10px;scrollbar-width:none;}
   .chip-row::-webkit-scrollbar{display:none;}
@@ -128,15 +150,31 @@
   .check-circle.pop{animation:pop .28s ease-out;}
   @keyframes pop{0%{transform:scale(.6);}60%{transform:scale(1.18);}100%{transform:scale(1);}}
   .item-body{flex:1;min-width:0;}
-  .item-name{font-weight:600;word-break:break-word;}
+  .item-name{font-weight:600;font-size:16px;word-break:break-word;}
   .item-name.done{text-decoration:line-through;color:var(--ink-soft);}
   .item-name.checked{text-decoration:line-through;color:var(--checked-green);}
   .item-note{font-size:13px;font-style:italic;color:var(--ink-soft);margin-top:3px;word-break:break-word;}
   .item-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
   .tag-pill{font-size:11px;font-weight:700;color:var(--accent-ink);background:var(--accent-soft);padding:3px 8px;border-radius:999px;}
   .item-meta{font-size:12px;color:var(--ink-soft);margin-top:3px;}
+  .qty-badge{display:inline-block;font-variant-numeric:tabular-nums;font-size:12px;font-weight:700;color:var(--accent-ink);background:var(--accent-soft);padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:1px;}
+  .stepper{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:999px;background:var(--card);overflow:hidden;}
+  .stepper button{background:none;border:none;width:46px;height:42px;font-size:22px;line-height:1;color:var(--ink);cursor:pointer;}
+  .stepper button:active{background:var(--accent-soft);}
+  .stepper button[disabled]{opacity:.3;}
+  .stepper output{min-width:40px;text-align:center;font-weight:700;font-size:16px;}
+  .qty-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;}
+  .qty-row label{font-size:13px;color:var(--ink-soft);font-weight:600;}
+  .nudge-banner{margin:0 18px 10px;padding:10px 12px;border-radius:12px;background:var(--accent-soft);color:var(--accent-ink);font-size:13px;display:flex;align-items:flex-start;gap:10px;}
+  .nudge-banner b{font-weight:700;}
+  .nudge-banner .link-btn{padding:0;flex:0 0 auto;color:var(--accent-ink);}
+  .nudge-cta{margin:0 0 8px;text-align:center;}
+  .install-tip{display:flex;gap:10px;align-items:flex-start;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin:18px 0 0;font-size:13px;color:var(--ink-soft);line-height:1.4;}
+  .install-tip b{color:var(--ink);}
+  .install-tip svg{flex:0 0 auto;margin-top:1px;color:var(--accent);}
+  .status-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;font-size:14px;}
   .bottom-bar{position:sticky;bottom:0;z-index:4;padding:10px 18px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--bg);}
-  .trip-progress{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:8px;}
+  .trip-progress{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:8px;font-variant-numeric:tabular-nums;}
   .trip-bar{flex:1;height:6px;border-radius:3px;background:var(--border);overflow:hidden;}
   .trip-bar span{display:block;height:100%;border-radius:3px;background:var(--checked-green);transition:width .3s;}
 
@@ -172,6 +210,9 @@
 </head>
 <body>
 <div id="app"></div>
+<!-- iOS has no vibration API, but toggling a switch-style checkbox gives a
+     system haptic tick (iOS 17.4+). Clicked programmatically on check-off. -->
+<input type="checkbox" switch id="haptic-switch" tabindex="-1" aria-hidden="true" style="position:fixed;left:-100px;top:-100px;opacity:0;pointer-events:none;">
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
@@ -180,7 +221,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import {
   getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
-  doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
+  doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, addDoc,
   collection, serverTimestamp, increment, arrayUnion, arrayRemove, writeBatch, deleteField
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
@@ -192,6 +233,12 @@ const firebaseConfig = {
   messagingSenderId: "514216300410",
   appId: "1:514216300410:web:88aa6bfa4951e67e6f90c3"
 };
+
+// Web Push certificate ("key pair") from Firebase console -> Project settings
+// -> Cloud Messaging -> Web configuration. Leave empty until the Cloud
+// Function in /functions is deployed: nudges then still appear inside the
+// app, just without a phone notification.
+const FCM_VAPID_KEY = "";
 
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
@@ -214,6 +261,16 @@ function escapeHtml(s){
   });
 }
 function cleanItemName(s){ return String(s||"").trim().replace(/\s+/g," "); }
+// "3 lemons", "lemons x3", "lemons ×3", "2x paper towels" -> {name, qty}.
+// A bare number only counts when it's clearly a count, so "2% milk" and
+// "7up" stay as typed.
+function parseQuantity(raw){
+  var s = cleanItemName(raw), m;
+  if((m = s.match(/^(\d{1,3})\s*[x×]?\s+(.+)$/i)) && +m[1] > 0) return {name: m[2], qty: +m[1]};
+  if((m = s.match(/^(.+?)\s*[x×]\s*(\d{1,3})$/i)) && +m[2] > 0) return {name: m[1], qty: +m[2]};
+  return {name: s, qty: 1};
+}
+function qtyBadge(it){ return (it.qty > 1) ? '<span class="qty-badge">×'+it.qty+'</span>' : ''; }
 function slugify(s){
   var v = String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
   return v || ("item-" + Math.random().toString(36).slice(2,8));
@@ -282,6 +339,31 @@ function shareUrl(code){
 var URL_JOIN_CODE = normCode(new URLSearchParams(location.search).get("join") || "");
 if(URL_JOIN_CODE){
   history.replaceState(null, "", location.origin + location.pathname);
+}
+
+var IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform==="MacIntel" && navigator.maxTouchPoints > 1);
+var IS_STANDALONE = navigator.standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+
+// Line icons (24-unit grid, stroke inherits currentColor) in place of emoji
+// glyphs for controls, so buttons read as UI rather than text.
+var ICONS = {
+  help: '<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.4 2.4 0 1 1 3.4 2.2c-.7.4-1 .9-1 1.6"/><circle cx="12" cy="16.6" r=".6" fill="currentColor" stroke="none"/></svg>',
+  settings: '<svg class="ic" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 12h2M10 12h10M4 17h8M16 17h4"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="17" r="2"/></svg>',
+  send: '<svg class="ic" viewBox="0 0 24 24"><path d="M20 4 4 10.5l7 2.5 2.5 7L20 4z"/><path d="M11 13l9-9"/></svg>',
+  camera: '<svg class="ic" viewBox="0 0 24 24"><path d="M4 8.5A1.5 1.5 0 0 1 5.5 7H8l1.4-2h5.2L16 7h2.5A1.5 1.5 0 0 1 20 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 17.5z"/><circle cx="12" cy="13" r="3.2"/></svg>',
+  edit: '<svg class="ic sm" viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16z"/><path d="M13 7l4 4"/></svg>',
+  trash: '<svg class="ic sm" viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13"/><path d="M10 11v6M14 11v6"/></svg>',
+  share: '<svg class="ic sm" viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-8"/></svg>',
+  check: '<svg class="ic sm" viewBox="0 0 24 24" style="stroke-width:2.6"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+};
+function haptic(){
+  if(navigator.vibrate){ try{ navigator.vibrate(8); return; }catch(e){} }
+  var sw = document.getElementById("haptic-switch");
+  if(sw){ try{ sw.click(); }catch(e){} }
+}
+function installTipHtml(){
+  if(!IS_IOS || IS_STANDALONE) return "";
+  return '<div class="install-tip">'+ICONS.share+'<div><b>Make it an app.</b> Tap Share, then <b>Add to Home Screen</b>. You get full screen, a proper icon, and nudges as notifications.</div></div>';
 }
 
 var DEFAULT_STORES = ["Target", "Whole Foods", "Lunds & Byerlys", "Trader Joe's"];
@@ -582,6 +664,24 @@ var store = {
   saveUserProfile: function(uid, data){
     return setDoc(doc(dbase,"users",uid), data, {merge:true});
   },
+  saveFcmToken: function(uid, token){
+    return setDoc(doc(dbase,"users",uid), {fcmTokens: arrayUnion(token)}, {merge:true});
+  },
+  // A nudge is a tiny doc the partner's app (and the Cloud Function, for the
+  // push) picks up. The function marks it sent; clients prune old ones.
+  sendNudge: function(code, nudge){
+    return addDoc(collection(dbase,"groceryLists",code,"nudges"), Object.assign({createdAt: serverTimestamp()}, nudge));
+  },
+  deleteNudge: function(code, id){
+    return deleteDoc(doc(dbase,"groceryLists",code,"nudges",id));
+  },
+  subscribeNudges: function(code, cb){
+    return onSnapshot(collection(dbase,"groceryLists",code,"nudges"), function(snap){
+      var out=[];
+      snap.forEach(function(d){ out.push(Object.assign({id:d.id}, d.data())); });
+      cb(out);
+    }, function(){});
+  },
   ensureSpace: function(code){
     var ref = doc(dbase,"groceryLists",code);
     return getDoc(ref).then(function(snap){
@@ -646,7 +746,7 @@ var store = {
       storeTags: storeTags || [],
       status: "active",
       checked: false,
-      note: deleteField(), noteImage: deleteField(),
+      note: deleteField(), noteImage: deleteField(), qty: deleteField(),
       timesAdded: increment(1),
       addedBy: uid,
       createdAt: serverTimestamp(),
@@ -662,7 +762,7 @@ var store = {
   restoreItem: function(code, id, uid){
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), {
       status:"active", checked:false, timesAdded: increment(1), lastAddedAt: serverTimestamp(), addedBy: uid,
-      note: deleteField(), noteImage: deleteField()
+      note: deleteField(), noteImage: deleteField(), qty: deleteField()
     });
   },
   // Undo for "move to history" / "take off list": put items back exactly as
@@ -690,6 +790,9 @@ var store = {
   },
   setItemTags: function(code, id, tags){
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), {storeTags: tags});
+  },
+  setItemQty: function(code, id, qty){
+    return updateDoc(doc(dbase,"groceryLists",code,"items",id), (qty > 1) ? {qty: qty} : {qty: deleteField()});
   },
   setItemNote: function(code, id, note){
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), note ? {note: note} : {note: deleteField()});
@@ -751,7 +854,8 @@ var S = {
   meUid:null, me:null,
   spaceCode:null, loadingSpace:false, space:{stores:[], people:[]}, items:[],
   view:"list", filterStore:null, searchQuery:"", sheet:null, toast:null, renamingStore:null, renamingMe:false,
-  presence:[], offline: (typeof navigator !== "undefined" && navigator.onLine === false), justChecked:null
+  presence:[], offline: (typeof navigator !== "undefined" && navigator.onLine === false), justChecked:null,
+  nudges:[], pushEnabled:false, pushBusy:false
 };
 window.addEventListener("online", function(){ S.offline=false; renderPreservingInput(); });
 window.addEventListener("offline", function(){ S.offline=true; renderPreservingInput(); });
@@ -764,6 +868,116 @@ function sheetEnterClass(){
   if(!S.sheet || S.sheet.entered) return "";
   S.sheet.entered = true;
   return " sheet-enter";
+}
+
+/* ---------------- nudges ("anything else?") ---------------- */
+function partnerPeople(){ return (S.space.people||[]).filter(function(p){ return p.uid!==S.meUid; }); }
+function partnerNames(){ return partnerPeople().map(function(p){ return p.name; }).join(" & "); }
+function defaultNudgeMessage(){
+  var anyChecked = S.items.some(function(it){ return it.status==="active" && it.checked; });
+  if(anyChecked) return "Heading to checkout — anything else?";
+  if(S.filterStore) return "At "+S.filterStore+" now — anything else?";
+  return "Heading to the store — anything else?";
+}
+function loadSeenNudges(){ try{ return JSON.parse(localStorage.getItem("thoc_seen_nudges")||"[]"); }catch(e){ return []; } }
+function markNudgeSeen(id){
+  var seen = loadSeenNudges().filter(function(x){ return x!==id; }); seen.push(id);
+  try{ localStorage.setItem("thoc_seen_nudges", JSON.stringify(seen.slice(-50))); }catch(e){}
+}
+// The newest nudge addressed to me from the last 3 hours that I haven't
+// dismissed. Shown as a banner inside the app; the push is the same thing
+// delivered when the app is closed.
+function pendingNudge(){
+  var seen = loadSeenNudges(), now = Date.now();
+  var mine = S.nudges.filter(function(n){
+    if(n.fromUid===S.meUid || (n.toUids||[]).indexOf(S.meUid)===-1 || seen.indexOf(n.id)!==-1) return false;
+    var ms = (n.createdAt && n.createdAt.toMillis) ? n.createdAt.toMillis() : now;
+    return now-ms < 3*3600e3;
+  }).sort(function(a,b){
+    var ta = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0;
+    var tb = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0;
+    return tb-ta;
+  });
+  return mine[0] || null;
+}
+var prunedNudges = false;
+function pruneOldNudges(list){
+  if(prunedNudges) return; prunedNudges = true;
+  var cutoff = Date.now() - 24*3600e3;
+  list.forEach(function(n){
+    var ms = (n.createdAt && n.createdAt.toMillis) ? n.createdAt.toMillis() : Date.now();
+    if(ms < cutoff) store.deleteNudge(S.spaceCode, n.id).catch(function(){});
+  });
+}
+function sendNudge(message){
+  var to = partnerPeople().map(function(p){ return p.uid; });
+  if(!to.length){ showToast("Your partner hasn't joined yet"); return Promise.resolve(); }
+  return store.sendNudge(S.spaceCode, {
+    fromUid: S.meUid, fromName: S.me, toUids: to,
+    message: message, store: S.filterStore || null,
+    link: location.origin + location.pathname
+  }).then(function(){ showToast("Nudged "+partnerNames()+" 💌"); })
+    .catch(function(){ showToast("Couldn't send that — try again"); });
+}
+
+/* ---------------- push notifications (FCM) ---------------- */
+function pushPermission(){ return ("Notification" in window) ? Notification.permission : "unsupported"; }
+function pushState(){
+  if(!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)){
+    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    var standalone = window.matchMedia && window.matchMedia("(display-mode: standalone)").matches;
+    return (ios && !standalone) ? "needs_homescreen" : "unsupported";
+  }
+  if(!FCM_VAPID_KEY) return "not_configured";
+  if(Notification.permission==="denied") return "denied";
+  if(Notification.permission==="granted" && S.pushEnabled) return "on";
+  return "off";
+}
+var pushTokenPromise = null;
+function registerPushToken(){
+  if(pushTokenPromise) return pushTokenPromise;
+  var swReady = new Promise(function(resolve, reject){
+    var t = setTimeout(function(){ reject(new Error("sw_timeout")); }, 8000);
+    navigator.serviceWorker.ready.then(function(reg){ clearTimeout(t); resolve(reg); }, reject);
+  });
+  pushTokenPromise = import("https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging.js").then(function(m){
+    return m.isSupported().then(function(ok){
+      if(!ok) throw new Error("unsupported");
+      return swReady.then(function(reg){
+        return m.getToken(m.getMessaging(fbApp), {vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: reg});
+      });
+    });
+  }).then(function(token){
+    if(!token) throw new Error("no_token");
+    return store.saveFcmToken(S.meUid, token).then(function(){
+      S.pushEnabled = true;
+      try{ localStorage.setItem("thoc_push", "on"); }catch(e){}
+    });
+  });
+  pushTokenPromise.catch(function(){ pushTokenPromise = null; });
+  return pushTokenPromise;
+}
+function enablePush(){
+  if(S.pushBusy) return;
+  S.pushBusy = true; render();
+  var perm = ("Notification" in window) ? Notification.requestPermission() : Promise.resolve("unsupported");
+  Promise.resolve(perm).then(function(result){
+    if(result!=="granted") throw new Error(result);
+    return registerPushToken();
+  }).then(function(){
+    showToast("You'll get nudges on this device");
+  }).catch(function(err){
+    var why = err && err.message;
+    showToast(why==="denied" ? "Notifications are blocked for this site" : "Couldn't turn on notifications here");
+  }).then(function(){ S.pushBusy = false; render(); });
+}
+// Tokens rotate; refresh ours quietly on each open once the user opted in.
+function refreshPushIfEnabled(){
+  var on = false; try{ on = localStorage.getItem("thoc_push")==="on"; }catch(e){}
+  if(on && FCM_VAPID_KEY && pushPermission()==="granted" && S.meUid){
+    S.pushEnabled = true;
+    registerPushToken().catch(function(){});
+  }
 }
 
 var lastSyncErrorAt = 0;
@@ -882,6 +1096,7 @@ function entryHtml(){
   html += '<button class="btn btn-primary btn-block" id="entry-go" type="submit">Join list</button>';
   html += '</form>';
   html += '<p class="helper-text" style="margin:14px 0 0;text-align:center;">Make up any code and share it with your partner, or <button class="link-btn" id="entry-generate" style="padding:0;">generate one</button>.</p>';
+  html += installTipHtml();
   html += '</div>';
   return html;
 }
@@ -924,6 +1139,8 @@ function enterSpace(code){
     unsubs.push(store.subscribeSpace(code, function(sp){ S.space = sp; renderPreservingInput(); }, syncError));
     unsubs.push(store.subscribeItems(code, function(items){ S.items = items; renderPreservingInput(); }, syncError));
     unsubs.push(store.subscribePresence(code, function(list){ S.presence = list; renderPreservingInput(); }));
+    unsubs.push(store.subscribeNudges(code, function(list){ S.nudges = list; pruneOldNudges(list); renderPreservingInput(); }));
+    refreshPushIfEnabled();
     startPresenceHeartbeat();
     render();
   }).catch(function(){
@@ -1007,10 +1224,11 @@ function findExistingMatch(name, fuzzy){
 function appHtml(){
   var listCount = S.items.filter(function(it){ return it.status==="active"; }).length;
   var html = '<div class="app-top">';
-  html += '<div class="app-header"><div class="app-title"><span class="mark">🛒💗</span>Two Hearts, One Cart</div>'+
-    '<div style="display:flex;gap:2px;">'+
-    '<button class="icon-btn" id="help-btn" aria-label="Help">❓</button>'+
-    '<button class="icon-btn" id="settings-btn" aria-label="Settings">⚙️</button>'+
+  html += '<div class="app-header"><div class="app-title"><span class="mark">🛒💗</span><span class="title-text">Two Hearts, One Cart</span></div>'+
+    '<div class="header-actions">'+
+    '<button class="icon-btn" id="nudge-btn" aria-label="Nudge your partner">'+ICONS.send+'</button>'+
+    '<button class="icon-btn" id="help-btn" aria-label="Help">'+ICONS.help+'</button>'+
+    '<button class="icon-btn" id="settings-btn" aria-label="Settings">'+ICONS.settings+'</button>'+
     '</div></div>';
   var partners = activePartners();
   if(partners.length){
@@ -1019,11 +1237,17 @@ function appHtml(){
   if(S.offline){
     html += '<div class="offline-pill">📵 Offline — changes will sync when you\'re back online</div>';
   }
-  html += '<div class="tabs">'+
-    '<button class="tab-btn'+(S.view==="list"?" active":"")+'" id="tab-list">List'+(listCount ? '<span class="tab-count">'+listCount+'</span>' : '')+'</button>'+
-    '<button class="tab-btn'+(S.view==="browse"?" active":"")+'" id="tab-browse">Browse</button>'+
-    '<button class="tab-btn'+(S.view==="history"?" active":"")+'" id="tab-history">History</button>'+
-    '</div>';
+  var nudge = pendingNudge();
+  if(nudge){
+    html += '<div class="nudge-banner" role="status"><span style="flex:1;">💌 <b>'+escapeHtml(nudge.fromName||"Your partner")+':</b> '+escapeHtml(nudge.message||"Anything else?")+
+      (nudge.createdAt ? ' <span style="opacity:.7;">· '+escapeHtml(relTime(nudge.createdAt))+'</span>' : '')+'</span>'+
+      '<button class="link-btn" id="nudge-dismiss-btn" data-nudge="'+escapeHtml(nudge.id)+'">Got it</button></div>';
+  }
+  html += '<div class="tabs"><div class="seg" role="tablist">'+
+    '<button class="tab-btn'+(S.view==="list"?" active":"")+'" role="tab" aria-selected="'+(S.view==="list")+'" id="tab-list">List'+(listCount ? '<span class="tab-count">'+listCount+'</span>' : '')+'</button>'+
+    '<button class="tab-btn'+(S.view==="browse"?" active":"")+'" role="tab" aria-selected="'+(S.view==="browse")+'" id="tab-browse">Browse</button>'+
+    '<button class="tab-btn'+(S.view==="history"?" active":"")+'" role="tab" aria-selected="'+(S.view==="history")+'" id="tab-history">History</button>'+
+    '</div></div>';
 
   var stores = storesList();
   if(stores.length){
@@ -1037,7 +1261,7 @@ function appHtml(){
 
   if(S.view==="list"){
     html += '<form class="add-row" id="add-item-form"><input type="text" id="new-item-input" class="text-input" placeholder="Search or add a grocery…" autocomplete="off" enterkeyhint="done" value="'+escapeHtml(S.searchQuery||"")+'">'+
-      '<button class="icon-btn" id="scan-add-btn" type="button" aria-label="Scan barcode to add">📷</button>'+
+      '<button class="icon-btn" id="scan-add-btn" type="button" aria-label="Scan barcode to add">'+ICONS.camera+'</button>'+
       '<button class="btn btn-primary" id="add-item-btn" type="submit">Add</button></form>';
 
     var suggestions = searchSuggestions(S.searchQuery||"");
@@ -1073,6 +1297,7 @@ function appHtml(){
       var allDone = allChecked === allActive.length;
       html += '<div class="bottom-bar">'+
         '<div class="trip-progress"><span>'+tripChecked+' of '+tripItems.length+' in the cart</span><div class="trip-bar" aria-hidden="true"><span style="width:'+pct+'%;"></span></div></div>'+
+        (partnerPeople().length ? '<div class="nudge-cta"><button class="link-btn" id="nudge-cta-btn" style="padding:4px 8px;">💌 Ask '+escapeHtml(partnerNames())+': anything else?</button></div>' : '')+
         '<button class="btn btn-primary btn-block" id="move-to-history-btn">'+
           (allDone ? '🎉 Done shopping — move everything to history' : 'Move '+allChecked+' purchased item'+(allChecked===1?"":"s")+' to history')+
         '</button></div>';
@@ -1127,10 +1352,10 @@ function itemRowHtml(it, isHistory){
     html += '<div class="check-circle done" role="button" aria-label="Add '+escapeHtml(it.name)+' back to list" data-action="restore" data-item="'+escapeHtml(it.id)+'">+</div>';
   } else {
     var pop = (S.justChecked===it.id && checked) ? " pop" : "";
-    html += '<div class="check-circle'+(checked?" done":"")+pop+'" role="button" aria-pressed="'+(checked?"true":"false")+'" aria-label="Check off '+escapeHtml(it.name)+'" data-action="toggle-check" data-item="'+escapeHtml(it.id)+'">'+(checked?"✓":"")+'</div>';
+    html += '<div class="check-circle'+(checked?" done":"")+pop+'" role="button" aria-pressed="'+(checked?"true":"false")+'" aria-label="Check off '+escapeHtml(it.name)+'" data-action="toggle-check" data-item="'+escapeHtml(it.id)+'">'+(checked?ICONS.check:"")+'</div>';
   }
   html += '<div class="item-body">';
-  html += '<div class="item-name'+(isHistory?" done":"")+(checked?" checked":"")+'">'+(em?escapeHtml(em)+' ':'')+escapeHtml(it.name)+'</div>';
+  html += '<div class="item-name'+(isHistory?" done":"")+(checked?" checked":"")+'">'+(em?escapeHtml(em)+' ':'')+escapeHtml(it.name)+qtyBadge(it)+'</div>';
   if(it.note && !isHistory) html += '<div class="item-note">'+escapeHtml(it.note)+'</div>';
   if(tags.length) html += '<div class="item-tags">'+tags.map(function(t){return '<span class="tag-pill">'+escapeHtml(t)+'</span>';}).join("")+'</div>';
   if(isHistory){
@@ -1150,6 +1375,10 @@ function bindApp(){
   var b;
   if((b=document.getElementById("settings-btn"))) b.onclick = function(){ openSheet({type:"settings"}); };
   if((b=document.getElementById("help-btn"))) b.onclick = function(){ openSheet({type:"help", tab:S.view}); };
+  if((b=document.getElementById("nudge-btn"))) b.onclick = function(){ openSheet({type:"nudge"}); };
+  if((b=document.getElementById("nudge-cta-btn"))) b.onclick = function(){ openSheet({type:"nudge"}); };
+  var dismissBtn = document.getElementById("nudge-dismiss-btn");
+  if(dismissBtn) dismissBtn.onclick = function(){ markNudgeSeen(dismissBtn.getAttribute("data-nudge")); render(); };
   if((b=document.getElementById("tab-list"))) b.onclick = function(){ S.view="list"; render(); };
   if((b=document.getElementById("tab-browse"))) b.onclick = function(){ S.view="browse"; S.searchQuery=""; render(); };
   if((b=document.getElementById("tab-history"))) b.onclick = function(){ S.view="history"; S.searchQuery=""; render(); };
@@ -1173,17 +1402,29 @@ function bindApp(){
 
   var input = document.getElementById("new-item-input");
   function submitNewItem(){
-    var name = input.value.trim();
-    if(!name) return;
+    var raw = input.value.trim();
+    if(!raw) return;
+    var parsed = parseQuantity(raw);
+    // "3 lemons" only means a count if Lemons is a plausible item; if the
+    // whole string is itself a known item, keep it verbatim.
+    if(parsed.qty > 1 && findExistingMatch(raw)) parsed = {name: raw, qty: 1};
+    var name = parsed.name, qty = parsed.qty;
     var existing = findExistingMatch(name);
     S.searchQuery = "";
     if(existing && existing.status==="active"){
-      showToast(existing.name+" is already on your list");
+      if(qty > 1){
+        store.setItemQty(S.spaceCode, existing.id, qty).catch(function(){ showToast("Couldn't update that item"); });
+        showToast(existing.name+" is already on your list — set to ×"+qty);
+      } else {
+        showToast(existing.name+" is already on your list");
+      }
     } else if(existing){
-      store.restoreItem(S.spaceCode, existing.id, S.meUid).catch(function(){ showToast("Couldn't add that item"); });
+      store.restoreItem(S.spaceCode, existing.id, S.meUid).then(function(){
+        if(qty > 1) return store.setItemQty(S.spaceCode, existing.id, qty);
+      }).catch(function(){ showToast("Couldn't add that item"); });
     } else {
       var tags = S.filterStore ? [S.filterStore] : [];
-      store.createOrRestoreItem(S.spaceCode, name, tags, S.meUid).catch(function(){ showToast("Couldn't add that item"); });
+      store.createOrRestoreItem(S.spaceCode, name, tags, S.meUid, qty > 1 ? {qty: qty} : null).catch(function(){ showToast("Couldn't add that item"); });
     }
     render();
     setTimeout(function(){ var el = document.getElementById("new-item-input"); if(el) el.focus(); },0);
@@ -1206,7 +1447,7 @@ function bindApp(){
       // only for the next render or two - not every time the list redraws.
       S.justChecked = next ? id : null;
       setTimeout(function(){ if(S.justChecked===id) S.justChecked=null; }, 500);
-      if(next && navigator.vibrate){ try{ navigator.vibrate(8); }catch(err){} }
+      if(next) haptic();
       store.toggleChecked(S.spaceCode, id, next).catch(function(){ showToast("Couldn't update that item"); });
     };
   });
@@ -1237,6 +1478,7 @@ function bindApp(){
 /* ---------------- sheets (settings / edit item) ---------------- */
 function sheetHtml(){
   if(S.sheet.type==="settings") return settingsSheetHtml();
+  if(S.sheet.type==="nudge") return nudgeSheetHtml();
   if(S.sheet.type==="editItem") return editItemSheetHtml();
   if(S.sheet.type==="help") return helpSheetHtml();
   if(S.sheet.type==="scan") return scanSheetHtml();
@@ -1267,6 +1509,44 @@ function scanSheetHtml(){
     '<button class="btn btn-secondary btn-block" id="scan-cancel-btn">Cancel</button>'+
     '</div></div>';
 }
+function pushStatusHtml(){
+  var st = pushState();
+  var html = '<div class="settings-section"><h3>Nudges on this device</h3>';
+  if(st==="on"){
+    html += '<div class="status-row"><span>🔔 On — you\'ll get a notification when '+escapeHtml(partnerNames()||"your partner")+' nudges you</span></div>';
+  } else if(st==="off"){
+    html += '<button class="btn btn-secondary btn-block" id="enable-push-btn"'+(S.pushBusy?' disabled':'')+'>'+(S.pushBusy?'Turning on…':'🔔 Turn on notifications')+'</button>'+
+      '<p class="helper-text" style="margin:6px 0 0;">Nudges always show up here while the app is open. Turn this on to get them as a phone notification too.</p>';
+  } else if(st==="denied"){
+    html += '<div class="status-row"><span>🔕 Notifications are blocked for this site — allow them in your browser or system settings, then reopen the app.</span></div>';
+  } else if(st==="needs_homescreen"){
+    html += '<div class="status-row"><span>📲 On iPhone, add this app to your Home Screen (Share → Add to Home Screen) and open it from there to get notifications.</span></div>';
+  } else if(st==="not_configured"){
+    html += '<div class="status-row"><span>Phone notifications aren\'t set up for this install yet — nudges still appear here while the app is open. (See README: Cloud Function + Web Push key.)</span></div>';
+  } else {
+    html += '<div class="status-row"><span>This browser doesn\'t support notifications — nudges still appear here while the app is open.</span></div>';
+  }
+  html += '</div>';
+  return html;
+}
+function nudgeSheetHtml(){
+  var html = '<div class="sheet-backdrop'+sheetEnterClass()+'" id="sheet-backdrop"><div class="sheet">'+
+    '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
+    '<div class="sheet-handle"></div><h2>💌 Anything else?</h2>';
+  if(partnerPeople().length){
+    html += '<p class="helper-text">Pings '+escapeHtml(partnerNames())+' with a quick question. Great right before checkout — they can add to the list and you\'ll see it instantly.</p>'+
+      '<div class="field"><label for="nudge-msg">Message</label>'+
+      '<input type="text" id="nudge-msg" class="text-input" value="'+escapeHtml(S.sheet.message !== undefined ? S.sheet.message : defaultNudgeMessage())+'" maxlength="120" autocomplete="off" enterkeyhint="send"></div>'+
+      '<button class="btn btn-primary btn-block" id="nudge-send-btn" style="margin-bottom:22px;">Send to '+escapeHtml(partnerNames())+'</button>';
+  } else {
+    html += '<p class="helper-text">Once your partner joins this list, you can nudge them from here — handy right before checkout.</p>'+
+      '<div class="code-box"><span class="mono">'+escapeHtml(S.spaceCode)+'</span><button class="link-btn" id="copy-code-btn">Copy</button></div>'+
+      '<p class="helper-text">Share this code (or the link in Settings) so they can join.</p>';
+  }
+  html += pushStatusHtml();
+  html += '</div></div>';
+  return html;
+}
 var HELP_TEXT = {
   list: {
     title:"How the List tab works",
@@ -1279,7 +1559,9 @@ var HELP_TEXT = {
       "Tap an item's name to add a note (quantity, brand, instructions) or tag which stores carry it. Only tag a store if the item is exclusive to it — an untagged item is assumed to be carried everywhere, so it'll keep showing up no matter which store filter is selected. Items your partner added show a little 💗 with their name.",
       "From that same panel, Try scanning for a photo is a nice bonus when it hits — it looks up a product's barcode and pulls in a picture of exactly that item. It's genuinely hit-or-miss: reliable for national brands and Trader Joe's, spotty for smaller store brands, and it can't find fresh produce or most household items at all, since barcodes don't really exist for those. Treat a miss as normal, not a bug — just add a note instead. Like the note, a found photo clears once the item's checked off.",
       "The bottom of that panel also shows who added the item and when, so you can tell at a glance whether it's still worth buying or just stale leftover.",
-      "If your partner has the list open at the same time, you'll see a banner up top letting you know they're shopping right now."
+      "If your partner has the list open at the same time, you'll see a banner up top letting you know they're shopping right now.",
+      "Quantities: type \"3 lemons\" or \"lemons x3\" to set a count, or use the +/- stepper on the item's panel. Counts show as a ×3 badge and, like notes, reset the next time the item is added.",
+      "The 💌 up top (and the Ask … anything else? link during a trip) nudges your partner: a quick message that shows up in their app, and as a phone notification if they've turned those on."
     ]
   },
   browse: {
@@ -1327,8 +1609,8 @@ function settingsSheetHtml(){
           '</form>';
       } else {
         html += '<div class="store-manage-row"><span>'+escapeHtml(s)+'</span><div>'+
-          '<button class="icon-btn" data-rename-store="'+escapeHtml(s)+'" aria-label="Rename">✏️</button>'+
-          '<button class="icon-btn" data-remove-store="'+escapeHtml(s)+'" aria-label="Remove">🗑️</button></div></div>';
+          '<button class="icon-btn" data-rename-store="'+escapeHtml(s)+'" aria-label="Rename">'+ICONS.edit+'</button>'+
+          '<button class="icon-btn" data-remove-store="'+escapeHtml(s)+'" aria-label="Remove">'+ICONS.trash+'</button></div></div>';
       }
     });
   } else {
@@ -1347,7 +1629,7 @@ function settingsSheetHtml(){
       '</form>';
   } else {
     html += '<div class="store-manage-row"><span>👤 '+escapeHtml(S.me||"")+'</span>'+
-      '<button class="icon-btn" id="rename-me-btn" aria-label="Change your name">✏️</button></div>';
+      '<button class="icon-btn" id="rename-me-btn" aria-label="Change your name">'+ICONS.edit+'</button></div>';
   }
   html += '</div>';
 
@@ -1361,6 +1643,9 @@ function settingsSheetHtml(){
   }
   people.forEach(function(p){ html += '<div class="people-row">👤 '+escapeHtml(p.name)+(p.uid===S.meUid ? ' <span style="font-size:12px;">(you)</span>' : '')+'</div>'; });
   html += '</div>';
+
+  html += pushStatusHtml();
+  if(installTipHtml()) html += '<div class="settings-section">'+installTipHtml().replace('margin:18px 0 0','margin:0')+'</div>';
 
   var theme = currentTheme();
   html += '<div class="settings-section"><h3>Appearance</h3><div class="store-list" style="margin-bottom:0;">'+
@@ -1389,18 +1674,25 @@ function editItemSheetHtml(){
   var html = '<div class="sheet-backdrop'+sheetEnterClass()+'" id="sheet-backdrop"><div class="sheet">'+
     '<button class="icon-btn sheet-close" id="sheet-close-btn" aria-label="Close">✕</button>'+
     '<div class="sheet-handle"></div><h2>'+(itemEmoji(item)?escapeHtml(itemEmoji(item))+' ':'')+escapeHtml(item.name)+'</h2>';
-  html += '<div class="field"><label for="item-note-input">Note (quantity, brand, etc.)</label>'+
-    '<textarea id="item-note-input" class="text-input" rows="2" placeholder="e.g. two cans, Goya brand" style="resize:none;">'+escapeHtml(item.note||"")+'</textarea></div>';
+  var qty = item.qty > 1 ? item.qty : 1;
+  html += '<div class="qty-row"><label for="qty-value">Quantity</label>'+
+    '<div class="stepper" role="group" aria-label="Quantity">'+
+      '<button type="button" id="qty-minus" aria-label="Fewer"'+(qty<=1?' disabled':'')+'>−</button>'+
+      '<output id="qty-value">'+qty+'</output>'+
+      '<button type="button" id="qty-plus" aria-label="More"'+(qty>=99?' disabled':'')+'>+</button>'+
+    '</div></div>';
+  html += '<div class="field"><label for="item-note-input">Note (brand, size, instructions)</label>'+
+    '<textarea id="item-note-input" class="text-input" rows="2" placeholder="e.g. Goya brand, the big can" style="resize:none;">'+escapeHtml(item.note||"")+'</textarea></div>';
   if(item.noteImage){
     html += '<div style="position:relative;display:inline-block;margin-bottom:14px;">'+
       '<img src="'+escapeHtml(item.noteImage)+'" alt="" style="max-width:130px;max-height:130px;border-radius:12px;display:block;border:1px solid var(--border);">'+
       '<button class="icon-btn" id="remove-note-image-btn" aria-label="Remove photo" style="position:absolute;top:-10px;right:-10px;background:var(--card);border:1px solid var(--border);border-radius:50%;">✕</button>'+
       '</div>';
   } else {
-    html += '<button class="btn btn-secondary btn-block" id="scan-photo-btn">📷 Try scanning for a photo</button>'+
+    html += '<button class="btn btn-secondary btn-block" id="scan-photo-btn" style="display:flex;align-items:center;justify-content:center;gap:8px;">'+ICONS.camera+' Try scanning for a photo</button>'+
       '<p class="helper-text" style="margin:6px 0 14px;">A nice bonus when it works — best odds on national brands and Trader Joe\'s. Fresh produce, household items, and smaller store brands often won\'t be found.</p>';
   }
-  html += '<p class="helper-text">Note and photo clear automatically once this is checked off — nothing carries over next time.</p>';
+  html += '<p class="helper-text">Quantity, note and photo clear automatically once this is checked off — nothing carries over next time.</p>';
   if(stores.length){
     html += '<p class="helper-text">Only available at certain stores? Tag it below.</p><div class="store-list">';
     stores.forEach(function(s){
@@ -1529,6 +1821,7 @@ function bindSheet(){
     document.querySelectorAll("[data-theme-pick]").forEach(function(el){
       el.onclick = function(){ applyTheme(el.getAttribute("data-theme-pick")); render(); };
     });
+    if((b=document.getElementById("enable-push-btn"))) b.onclick = enablePush;
     if((b=document.getElementById("copy-code-btn"))) b.onclick = function(){
       var code = S.spaceCode;
       if(navigator.clipboard && navigator.clipboard.writeText){
@@ -1603,6 +1896,35 @@ function bindSheet(){
     if(removeImgBtn) removeImgBtn.onclick = function(){
       store.setItemNoteImage(S.spaceCode, item.id, null).catch(function(){ showToast("Couldn't remove photo"); });
     };
+    function bumpQty(delta){
+      flushNoteIfOpen();
+      var next = Math.max(1, Math.min(99, (item.qty > 1 ? item.qty : 1) + delta));
+      store.setItemQty(S.spaceCode, item.id, next).catch(function(){ showToast("Couldn't update quantity"); });
+    }
+    var qm = document.getElementById("qty-minus"), qp = document.getElementById("qty-plus");
+    if(qm) qm.onclick = function(){ bumpQty(-1); };
+    if(qp) qp.onclick = function(){ bumpQty(+1); };
+  } else if(S.sheet.type==="nudge"){
+    var msgEl = document.getElementById("nudge-msg");
+    if(msgEl){
+      msgEl.oninput = function(){ S.sheet.message = msgEl.value; };
+      msgEl.onkeydown = function(e){ if(e.key==="Enter"){ e.preventDefault(); var sb=document.getElementById("nudge-send-btn"); if(sb) sb.click(); } };
+    }
+    var sendBtn = document.getElementById("nudge-send-btn");
+    if(sendBtn) sendBtn.onclick = function(){
+      var msg = (msgEl ? msgEl.value : "").trim() || "Anything else?";
+      sendBtn.disabled = true;
+      sendNudge(msg).then(function(){ S.sheet = null; render(); });
+    };
+    var cc = document.getElementById("copy-code-btn");
+    if(cc) cc.onclick = function(){
+      var code = S.spaceCode;
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(code).then(function(){ showToast("Code copied"); }).catch(function(){ showToast(code); });
+      } else { showToast(code); }
+    };
+    var ep = document.getElementById("enable-push-btn");
+    if(ep) ep.onclick = enablePush;
   } else if(S.sheet.type==="scan"){
     var cancelBtn = document.getElementById("scan-cancel-btn");
     if(cancelBtn) cancelBtn.onclick = function(){
