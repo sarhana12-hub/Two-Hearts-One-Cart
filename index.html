@@ -915,7 +915,7 @@ var S = {
   spaceCode:null, loadingSpace:false, space:{stores:[], people:[]}, items:[],
   view:"list", filterStore:null, searchQuery:"", sheet:null, toast:null, renamingStore:null, renamingMe:false,
   presence:[], offline: (typeof navigator !== "undefined" && navigator.onLine === false), justChecked:null,
-  nudges:[], gesturing:false, renderPending:false, browseQuery:"", editingPhone:false
+  nudges:[], gesturing:false, renderPending:false, browseQuery:"", editingPhoneFor:null
 };
 function endGesture(){
   S.gesturing = false;
@@ -996,13 +996,52 @@ function normalizePhone(s){
   if(v.indexOf("+") > 0) v = v.replace(/\+/g, "");
   return v.length >= 7 ? v : "";
 }
-function myPhone(){
-  var mine = (S.space.people||[]).filter(function(p){ return isMe(p.uid) && p.phone; });
-  return mine.length ? mine[0].phone : "";
+function phoneFor(name){
+  var hit = (S.space.people||[]).find(function(p){ return p.phone && sameName(p.name, name); });
+  return hit ? hit.phone : "";
 }
 function partnerPhone(){
   var withPhone = partnerPeople().filter(function(p){ return p.phone; });
   return withPhone.length ? withPhone[0].phone : "";
+}
+// Either partner can enter either number: the one who knows it types it.
+// Written onto every entry that person has (one per device).
+function savePhoneFor(name, raw){
+  var phone = normalizePhone(raw);
+  if(raw.trim() && !phone){ showToast("That doesn't look like a phone number"); return Promise.reject(new Error("bad_phone")); }
+  var people = (S.space.people||[]).map(function(p){
+    if(!sameName(p.name, name)) return p;
+    var next = {uid:p.uid, name:p.name};
+    if(phone) next.phone = phone;
+    return next;
+  });
+  return store.setPeople(S.spaceCode, people).then(function(){ showToast(phone ? "Number saved" : "Number removed"); })
+    .catch(function(){ showToast("Couldn't save that — try again"); });
+}
+function phoneFormHtml(name, id){
+  return '<form class="store-manage-row" id="'+id+'" data-phone-for="'+escapeHtml(name)+'" style="gap:8px;">'+
+    '<input type="tel" class="text-input phone-input" value="'+escapeHtml(phoneFor(name))+'" placeholder="'+escapeHtml(name)+'\'s number" style="flex:1;" autocomplete="tel" inputmode="tel" aria-label="'+escapeHtml(name)+'\'s phone number">'+
+    '<button class="icon-btn" type="submit" aria-label="Save">✓</button>'+
+    '<button class="icon-btn phone-cancel" type="button" aria-label="Cancel">✕</button>'+
+    '</form>';
+}
+function bindPhoneForms(){
+  document.querySelectorAll("form[data-phone-for]").forEach(function(form){
+    var name = form.getAttribute("data-phone-for");
+    form.onsubmit = function(e){
+      e.preventDefault();
+      var raw = form.querySelector(".phone-input").value;
+      savePhoneFor(name, raw).then(function(){ S.editingPhoneFor = null; render(); }, function(){});
+    };
+    var cancel = form.querySelector(".phone-cancel");
+    if(cancel) cancel.onclick = function(){ S.editingPhoneFor = null; render(); };
+  });
+  document.querySelectorAll("[data-edit-phone]").forEach(function(btn){
+    btn.onclick = function(){
+      S.editingPhoneFor = btn.getAttribute("data-edit-phone"); render();
+      setTimeout(function(){ var e=document.querySelector("form[data-phone-for] .phone-input"); if(e) e.focus(); },0);
+    };
+  });
 }
 // iOS wants "sms:NUMBER&body=", Android "sms:NUMBER?body=". No number is
 // fine on both: Messages opens with the text and asks who it's for.
@@ -1706,8 +1745,15 @@ function nudgeSheetHtml(){
       '<a class="btn btn-primary btn-block" id="nudge-text-btn" href="'+escapeHtml(smsHref(phone, msg.trim() || "Anything else?"))+'" style="text-align:center;text-decoration:none;">💬 Text '+escapeHtml(partnerNames())+'</a>'+
       '<p class="helper-text" style="margin:8px 0 14px;text-align:center;">'+(phone
         ? 'Opens Messages with this typed and ready to send.'
-        : 'Opens Messages with this typed; you pick the contact. Add phone numbers in Settings and it opens the right conversation directly.')+'</p>'+
-      '<div class="link-row" style="margin:0 0 18px;"><button class="link-btn" id="nudge-send-btn">Just show it in their app instead</button></div>';
+        : 'Opens Messages with this typed; you pick the contact.')+'</p>';
+    if(!phone){
+      var who = uniquePeople(partnerPeople())[0].name;
+      html += '<div class="settings-section" style="margin-bottom:14px;"><h3>'+escapeHtml(who)+'\'s number</h3>'+
+        (S.editingPhoneFor===who ? phoneFormHtml(who, "nudge-phone-form")
+          : '<button class="btn btn-secondary btn-block" data-edit-phone="'+escapeHtml(who)+'">📱 Add '+escapeHtml(who)+'\'s number</button>')+
+        '<p class="helper-text" style="margin:6px 0 0;">Then this opens straight to their conversation, every time.</p></div>';
+    }
+    html += '<div class="link-row" style="margin:0 0 18px;"><button class="link-btn" id="nudge-send-btn">Just show it in their app instead</button></div>';
   } else {
     html += '<p class="helper-text">Once your partner joins this list, you can nudge them from here — handy right before checkout.</p>'+
       '<div class="code-box"><span class="mono">'+escapeHtml(S.spaceCode)+'</span><button class="link-btn" id="copy-code-btn">Copy</button></div>'+
@@ -1801,18 +1847,6 @@ function settingsSheetHtml(){
     html += '<div class="store-manage-row"><span>👤 '+escapeHtml(S.me||"")+'</span>'+
       '<button class="icon-btn" id="rename-me-btn" aria-label="Change your name">'+ICONS.edit+'</button></div>';
   }
-  var phone = myPhone();
-  if(S.editingPhone){
-    html += '<form class="store-manage-row" id="phone-form" style="gap:8px;">'+
-      '<input type="tel" id="phone-input" class="text-input" value="'+escapeHtml(phone)+'" placeholder="+1 612 555 0199" style="flex:1;" autocomplete="tel" inputmode="tel">'+
-      '<button class="icon-btn" type="submit" aria-label="Save">✓</button>'+
-      '<button class="icon-btn" id="cancel-phone-btn" type="button" aria-label="Cancel">✕</button>'+
-      '</form>';
-  } else {
-    html += '<div class="store-manage-row"><span>📱 '+(phone ? escapeHtml(phone) : '<span style="color:var(--ink-soft);">No phone number yet</span>')+'</span>'+
-      '<button class="icon-btn" id="edit-phone-btn" aria-label="'+(phone ? 'Change' : 'Add')+' your phone number">'+ICONS.edit+'</button></div>';
-  }
-  html += '<p class="helper-text" style="margin:2px 0 0;">Your number lets your partner\'s "anything else?" text open straight to you. Only the two of you can see it.</p>';
   html += '</div>';
 
   html += '<div class="settings-section"><h3>Your shared list</h3>'+
@@ -1823,11 +1857,22 @@ function settingsSheetHtml(){
   if(navigator.share){
     html += '<button class="btn btn-secondary btn-block" id="share-link-btn" style="margin-bottom:10px;">💌 Send an invite</button>';
   }
+  html += '</div>';
+
+  html += '<div class="settings-section"><h3>People &amp; phone numbers</h3>';
   uniquePeople(people).forEach(function(p){
     var devices = people.filter(function(q){ return sameName(q.name, p.name); }).length;
-    html += '<div class="people-row">👤 '+escapeHtml(p.name)+(isMe(p.uid) ? ' <span style="font-size:12px;">(you)</span>' : '')+
-      (devices > 1 ? ' <span style="font-size:12px;">· '+devices+' devices</span>' : '')+'</div>';
+    var ph = phoneFor(p.name);
+    if(S.editingPhoneFor===p.name){
+      html += phoneFormHtml(p.name, "phone-form-"+slugify(p.name));
+    } else {
+      html += '<div class="store-manage-row"><div><div>👤 '+escapeHtml(p.name)+(isMe(p.uid) ? ' <span style="font-size:12px;color:var(--ink-soft);">(you)</span>' : '')+
+        (devices > 1 ? ' <span style="font-size:12px;color:var(--ink-soft);">· '+devices+' devices</span>' : '')+'</div>'+
+        '<div style="font-size:14px;color:var(--ink-soft);margin-top:2px;">'+(ph ? '📱 '+escapeHtml(ph) : 'No number yet')+'</div></div>'+
+        '<button class="icon-btn" data-edit-phone="'+escapeHtml(p.name)+'" aria-label="'+(ph ? 'Change' : 'Add')+' '+escapeHtml(p.name)+'\'s phone number">'+ICONS.edit+'</button></div>';
+    }
   });
+  html += '<p class="helper-text" style="margin:2px 0 0;">Either of you can enter either number. It\'s what the "anything else?" text uses to open the right conversation. Only the two of you can see it.</p>';
   html += '</div>';
 
   if(installTipHtml()) html += '<div class="settings-section">'+installTipHtml().replace('margin:18px 0 0','margin:0')+'</div>';
@@ -1926,7 +1971,7 @@ document.addEventListener("visibilitychange", function(){ if(document.visibility
 function closeSheet(){
   stopActiveScan();
   flushNoteIfOpen();
-  S.sheet = null; S.renamingStore = null; S.renamingMe = false; S.editingPhone = false;
+  S.sheet = null; S.renamingStore = null; S.renamingMe = false; S.editingPhoneFor = null;
   render();
 }
 function bindSheet(){
@@ -1986,28 +2031,7 @@ function bindSheet(){
       setTimeout(function(){ var e=document.getElementById("rename-me-input"); if(e){ e.focus(); e.select(); } },0);
     };
     if((b=document.getElementById("cancel-rename-me-btn"))) b.onclick = function(){ S.renamingMe=false; render(); };
-    if((b=document.getElementById("edit-phone-btn"))) b.onclick = function(){
-      S.editingPhone = true; render();
-      setTimeout(function(){ var e=document.getElementById("phone-input"); if(e){ e.focus(); } },0);
-    };
-    if((b=document.getElementById("cancel-phone-btn"))) b.onclick = function(){ S.editingPhone=false; render(); };
-    var phoneForm = document.getElementById("phone-form");
-    if(phoneForm) phoneForm.onsubmit = function(e){
-      e.preventDefault();
-      var raw = document.getElementById("phone-input").value.trim();
-      var phone = normalizePhone(raw);
-      if(raw && !phone){ showToast("That doesn't look like a phone number"); return; }
-      var people = (S.space.people||[]).map(function(p){
-        if(!isMe(p.uid)) return p;
-        var next = {uid:p.uid, name:p.name};
-        if(phone) next.phone = phone;
-        return next;
-      });
-      if(!people.some(function(p){ return p.uid===S.meUid; })){ var me = {uid:S.meUid, name:S.me}; if(phone) me.phone = phone; people.push(me); }
-      store.setPeople(S.spaceCode, people).then(function(){ showToast(phone ? "Number saved" : "Number removed"); })
-        .catch(function(){ showToast("Couldn't save that — try again"); });
-      S.editingPhone = false; render();
-    };
+    bindPhoneForms();
     var renameMeForm = document.getElementById("rename-me-form");
     if(renameMeForm) renameMeForm.onsubmit = function(e){
       e.preventDefault();
@@ -2119,6 +2143,7 @@ function bindSheet(){
     if(qm) qm.onclick = function(){ bumpQty(-1); };
     if(qp) qp.onclick = function(){ bumpQty(+1); };
   } else if(S.sheet.type==="nudge"){
+    bindPhoneForms();
     var msgEl = document.getElementById("nudge-msg");
     var textBtn = document.getElementById("nudge-text-btn");
     if(msgEl){

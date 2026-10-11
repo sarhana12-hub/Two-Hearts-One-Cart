@@ -23,8 +23,9 @@ PWA, synced in real time through Firebase Firestore, hosted on GitHub Pages.
   count resets the next time the item is added.
 - **"Anything else?" texts**: the paper-plane button, or the link in the
   bottom bar during a trip, writes a short message for you and opens
-  Messages with it ready to send. If you've both saved phone numbers in
-  Settings it opens straight to your partner's conversation. The note also
+  Messages with it ready to send. Once your partner's number is saved
+  (either of you can enter either number, in Settings or right in the
+  sheet) it opens straight to their conversation. The note also
   appears as a banner at the top of their list the next time the app is open.
   No server, no notification permissions: it's an `sms:` link.
 - **Offline**: Firestore's IndexedDB cache keeps the list readable and
