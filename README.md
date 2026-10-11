@@ -21,9 +21,12 @@ PWA, synced in real time through Firebase Firestore, hosted on GitHub Pages.
 - **Quantities** are a real field: type "3 lemons" or "lemons x3", or use
   the +/- stepper on the item's panel. Shows as a ×3 badge. Like notes, a
   count resets the next time the item is added.
-- **Nudges** ("anything else?"): the paper-plane button, or the link in the
-  bottom bar during a trip, sends your partner a short message that appears
-  as a banner at the top of their list while they have the app open.
+- **"Anything else?" texts**: the paper-plane button, or the link in the
+  bottom bar during a trip, writes a short message for you and opens
+  Messages with it ready to send. If you've both saved phone numbers in
+  Settings it opens straight to your partner's conversation. The note also
+  appears as a banner at the top of their list the next time the app is open.
+  No server, no notification permissions: it's an `sms:` link.
 - **Offline**: Firestore's IndexedDB cache keeps the list readable and
   writable without signal; changes sync when you're back online.
 - **Gestures**: swipe a row right to check it off, left to take it off the
@@ -67,6 +70,10 @@ checked, note, noteImage, timesAdded, addedBy (uid), createdAt, lastAddedAt, las
 Status transitions: `suggested/done → active` (add), `active → done` (move to
 history), `active → suggested` (take off list). Notes and photos stay on the
 document until the item is *re-added*, which is what makes Undo lossless.
+
+People entries on the list document are `{uid, name, phone?}`. One person
+can have several entries (one per device, since anonymous sign-in is per
+browser storage); same-name entries are treated as the same person.
 
 Nudge documents live at `groceryLists/{CODE}/nudges/{id}`:
 
