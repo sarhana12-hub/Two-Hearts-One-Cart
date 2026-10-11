@@ -21,9 +21,12 @@ PWA, synced in real time through Firebase Firestore, hosted on GitHub Pages.
 - **Quantities** are a real field: type "3 lemons" or "lemons x3", or use
   the +/- stepper on the item's panel. Shows as a ×3 badge. Like notes, a
   count resets the next time the item is added.
-- **"Anything else?" texts**: the paper-plane button, or the link in the
-  bottom bar during a trip, writes a short message for you and opens
-  Messages with it ready to send. Once your partner's number is saved
+- **"Anything else?" texts**: two ready-made messages at the two moments
+  they're useful. Before the trip, with nothing checked yet, the bottom of
+  the list offers "Heading to the store"; once you're checking things off it
+  switches to "Heading to checkout" next to the progress bar. The paper-plane
+  button opens the same sheet, where both presets are one tap away. Each
+  opens Messages with the text ready to send. Once your partner's number is saved
   (either of you can enter either number, in Settings or right in the
   sheet) it opens straight to their conversation. The note also
   appears as a banner at the top of their list the next time the app is open.
