@@ -203,6 +203,16 @@
   .nudge-cta{margin:0 0 8px;text-align:center;}
   /* item photos */
   .photo-field{margin-bottom:14px;}
+  .keep-row{display:flex;align-items:center;gap:12px;margin-top:10px;padding:10px 12px;border:1px solid var(--border);border-radius:14px;background:var(--card);cursor:pointer;-webkit-user-select:none;user-select:none;}
+  .keep-row .keep-text{flex:1;font-weight:600;font-size:15px;}
+  .keep-row .keep-text small{display:block;font-weight:400;font-size:13px;color:var(--ink-soft);margin-top:1px;}
+  .toggle{-webkit-appearance:none;appearance:none;flex:0 0 auto;width:51px;height:31px;margin:0;border-radius:999px;background:var(--border);position:relative;cursor:pointer;transition:background .2s;}
+  .toggle::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.2);transition:transform .2s;}
+  .toggle:checked{background:var(--done);}
+  .toggle:checked::after{transform:translateX(20px);}
+  .toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .pin-badge{position:absolute;right:-4px;bottom:-4px;font-size:12px;line-height:1;background:var(--card);border-radius:50%;padding:2px;}
+  .thumb-wrap{position:relative;flex:0 0 auto;}
   .field-label{font-size:14px;color:var(--ink-soft);margin-bottom:6px;font-weight:600;}
   .sr-file{position:fixed;left:-1000px;top:0;width:1px;height:1px;opacity:0;}
   .photo-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
@@ -684,6 +694,12 @@ function safeImgSrc(s){
   if(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(s)) return s;
   return "";
 }
+// "Keep this photo": the photo stays on the item through purchase and
+// re-adding, and is skipped by the stale-photo cleanup.
+function photoKept(id){
+  var it = S.items.find(function(x){ return x.id===id; });
+  return !!(it && it.photoPinned);
+}
 function itemThumbSrc(it){
   return safeImgSrc(it.noteThumb) || (/^https:\/\//.test(it.noteImage||"") ? it.noteImage : "");
 }
@@ -800,7 +816,7 @@ function pruneStalePhotos(items){
   if(prunedPhotos || !items.length) return; prunedPhotos = true;
   var cutoff = Date.now() - 24*3600e3;
   items.forEach(function(it){
-    if(it.status==="active" || !/^data:/.test(it.noteImage||"")) return;
+    if(it.status==="active" || it.photoPinned || !/^data:/.test(it.noteImage||"")) return;
     var doneMs = (it.lastDoneAt && it.lastDoneAt.toMillis) ? it.lastDoneAt.toMillis() : 0;
     if(it.status==="suggested" || doneMs < cutoff) store.setItemNoteImage(S.spaceCode, it.id, null).catch(function(){});
   });
@@ -972,16 +988,22 @@ var store = {
     };
     var emoji = EMOJI_MAP[nameKey] !== undefined ? EMOJI_MAP[nameKey] : guessEmoji(cleanName);
     if(emoji) patch.emoji = emoji;
+    if(photoKept(id)){ delete patch.noteImage; delete patch.noteThumb; }
     Object.assign(patch, extra || {});
     return setDoc(ref, patch, {merge:true}).then(function(){ return id; });
   },
   // A fresh add from Browse/History/search: counts as a purchase intent and
   // starts with a clean slate (last trip's note and photo don't carry over).
   restoreItem: function(code, id, uid){
-    return updateDoc(doc(dbase,"groceryLists",code,"items",id), {
+    var patch = {
       status:"active", checked:false, timesAdded: increment(1), lastAddedAt: serverTimestamp(), addedBy: uid,
       note: deleteField(), noteImage: deleteField(), noteThumb: deleteField(), qty: deleteField()
-    });
+    };
+    if(photoKept(id)){ delete patch.noteImage; delete patch.noteThumb; }
+    return updateDoc(doc(dbase,"groceryLists",code,"items",id), patch);
+  },
+  setPhotoPinned: function(code, id, on){
+    return updateDoc(doc(dbase,"groceryLists",code,"items",id), {photoPinned: on ? true : deleteField()});
   },
   // Undo for "move to history" / "take off list": put items back exactly as
   // they were, without bumping counters or touching notes.
@@ -1016,7 +1038,7 @@ var store = {
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), note ? {note: note} : {note: deleteField()});
   },
   setItemNoteImage: function(code, id, url){
-    return updateDoc(doc(dbase,"groceryLists",code,"items",id), url ? {noteImage: url, noteThumb: deleteField()} : {noteImage: deleteField(), noteThumb: deleteField()});
+    return updateDoc(doc(dbase,"groceryLists",code,"items",id), url ? {noteImage: url, noteThumb: deleteField()} : {noteImage: deleteField(), noteThumb: deleteField(), photoPinned: deleteField()});
   },
   // Uploaded photos are stored inline as compressed JPEG data URLs (a full
   // version for the viewer and a tiny square thumbnail for list rows), so
@@ -1665,8 +1687,11 @@ function itemRowHtml(it, isHistory){
     if(who) html += '<div class="item-meta">💗 '+escapeHtml(who)+' added'+(when ? ' · '+escapeHtml(when) : '')+'</div>';
   }
   html += '</div>';
-  var thumb = isHistory ? "" : itemThumbSrc(it);
-  if(thumb) html += '<img class="row-thumb" src="'+escapeHtml(thumb)+'" alt="Photo of '+escapeHtml(it.name)+'" data-photo="'+escapeHtml(it.id)+'" data-keep="thumb-'+escapeHtml(it.id)+'" loading="lazy">';
+  var thumb = (isHistory && !it.photoPinned) ? "" : itemThumbSrc(it);
+  if(thumb){
+    html += '<span class="thumb-wrap"><img class="row-thumb" src="'+escapeHtml(thumb)+'" alt="Photo of '+escapeHtml(it.name)+'" data-photo="'+escapeHtml(it.id)+'" data-keep="thumb-'+escapeHtml(it.id)+'" loading="lazy">'+
+      (it.photoPinned ? '<span class="pin-badge" aria-label="Photo kept">📌</span>' : '')+'</span>';
+  }
   html += '</div>';
   return html;
 }
@@ -1977,7 +2002,7 @@ var HELP_TEXT = {
       "Tap the circle next to an item to check it off while you shop, or swipe the row to the right. Swipe left to take it off the list (there's an Undo). Checked items get a green strikethrough and sink to the bottom, but stay visible so you can see what's in your cart.",
       "A progress bar at the bottom tracks how much of the trip is in the cart. Once you're done shopping, tap Move to history to archive everything you checked off — there's an Undo on the toast if you tapped too soon.",
       "Tap an item's name to add a note (quantity, brand, instructions) or tag which stores carry it. Only tag a store if the item is exclusive to it — an untagged item is assumed to be carried everywhere, so it'll keep showing up no matter which store filter is selected. Items your partner added show a little 💗 with their name.",
-      "From that same panel, add a photo of exactly what you want: Camera takes one now, Library picks one you already have, and Paste drops in a picture you copied from a website or a text (long-press Paste in the note box works too). It shows as a small thumbnail on the list; tap it to see it full screen in the store. Scanning the barcode is still there as a shortcut for packaged brands, hit-or-miss as ever. Like the note, the photo starts fresh the next time the item is added.",
+      "From that same panel, add a photo of exactly what you want: Camera takes one now, Library picks one you already have, and Paste drops in a picture you copied from a website or a text (long-press Paste in the note box works too). It shows as a small thumbnail on the list; tap it to see it full screen in the store. Scanning the barcode is still there as a shortcut for packaged brands, hit-or-miss as ever. Normally the photo starts fresh the next time the item is added, like the note. Turn on Keep this photo under it and it stays with the item for good, shows in History with a 📌, and is there again next time you add it.",
       "The bottom of that panel also shows who added the item and when, so you can tell at a glance whether it's still worth buying or just stale leftover.",
       "If your partner has the list open at the same time, you'll see a banner up top letting you know they're shopping right now.",
       "Quantities: type \"3 lemons\" or \"lemons x3\" to set a count, or use the +/- stepper on the item's panel. Counts show as a ×3 badge and, like notes, reset the next time the item is added.",
@@ -2130,7 +2155,10 @@ function editItemSheetHtml(){
         '<label class="chip" for="photo-camera-input" data-photo-pick>'+ICONS.camera+' Retake</label>'+
         '<label class="chip" for="photo-library-input" data-photo-pick>'+ICONS.photos+' Replace</label>'+
         '<button type="button" class="chip" id="remove-note-image-btn">Remove</button>'+
-      '</div>';
+      '</div>'+
+      '<label class="keep-row" for="keep-photo-toggle"><span class="keep-text">Keep this photo<small>'+
+        (item.photoPinned ? 'Stays on the item after it\'s bought, for next time' : 'Off: the photo clears after this trip')+
+      '</small></span><input type="checkbox" class="toggle" id="keep-photo-toggle" role="switch"'+(item.photoPinned?' checked':'')+'></label>';
   } else {
     html += '<div class="photo-tiles">'+
         '<label class="photo-tile" for="photo-camera-input" data-photo-pick>'+ICONS.camera+'Camera</label>'+
@@ -2140,7 +2168,7 @@ function editItemSheetHtml(){
       '<div class="link-row" style="margin-top:6px;"><button type="button" class="link-btn" id="scan-photo-btn" style="padding:4px;font-size:14px;color:var(--ink-soft);">Or scan the barcode for a product photo</button></div>';
   }
   html += '</div>';
-  html += '<p class="helper-text">Quantity, note and photo clear automatically once this is checked off — nothing carries over next time.</p>';
+  html += '<p class="helper-text">Quantity and note start fresh the next time this is added'+(item.photoPinned ? '; the kept photo stays.' : ', and so does the photo unless you keep it.')+'</p>';
   if(stores.length){
     html += '<p class="helper-text">Only available at certain stores? Tag it below.</p><div class="store-list">';
     stores.forEach(function(s){
@@ -2358,6 +2386,13 @@ function bindSheet(){
     });
     var pasteBtn = document.getElementById("paste-photo-btn");
     if(pasteBtn) pasteBtn.onclick = function(){ flushNoteIfOpen(); pasteFromClipboard(item.id); };
+    var keepToggle = document.getElementById("keep-photo-toggle");
+    if(keepToggle) keepToggle.onchange = function(){
+      var on = keepToggle.checked;
+      haptic();
+      store.setPhotoPinned(S.spaceCode, item.id, on).catch(function(){ showToast("Couldn't update that"); });
+      showToast(on ? "Photo kept for next time" : "Photo will clear after this trip");
+    };
     var openPhoto = document.getElementById("open-photo-btn");
     if(openPhoto) openPhoto.onclick = function(){ flushNoteIfOpen(); S.photoViewer = item.id; render(); };
     function bumpQty(delta){

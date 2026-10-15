@@ -38,7 +38,10 @@ PWA, synced in real time through Firebase Firestore, hosted on GitHub Pages.
   JPEG data URL (about 150–450 KB, plus a ~2 KB thumbnail), so no Firebase
   Storage bucket or paid plan is needed. Like notes, a photo is cleared the
   next time the item is added, and photos on items that left the list more
-  than a day ago are pruned so they don't ride along in every sync.
+  than a day ago are pruned so they don't ride along in every sync. Turn on
+  **Keep this photo** under a photo to make it permanent: it survives
+  purchase and re-adding, shows in History with a 📌, and is never pruned.
+  Removing the photo turns the switch off.
 - **Offline**: Firestore's IndexedDB cache keeps the list readable and
   writable without signal; changes sync when you're back online.
 - **Gestures**: swipe a row right to check it off, left to take it off the
@@ -76,7 +79,7 @@ Item documents look like:
 
 ```
 name, nameKey (lowercase), emoji, storeTags[], status: active|done|suggested,
-checked, note, noteImage (https URL or data:image/jpeg), noteThumb, timesAdded, addedBy (uid), createdAt, lastAddedAt, lastDoneAt
+checked, note, noteImage (https URL or data:image/jpeg), noteThumb, photoPinned, timesAdded, addedBy (uid), createdAt, lastAddedAt, lastDoneAt
 ```
 
 Status transitions: `suggested/done → active` (add), `active → done` (move to
