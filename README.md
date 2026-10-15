@@ -31,6 +31,14 @@ PWA, synced in real time through Firebase Firestore, hosted on GitHub Pages.
   sheet) it opens straight to their conversation. The note also
   appears as a banner at the top of their list the next time the app is open.
   No server, no notification permissions: it's an `sms:` link.
+- **Item photos**: in an item's panel, Camera takes a photo, Library picks
+  one, and Paste drops in a copied picture (⌘V or long-press Paste works
+  too). The list shows a small thumbnail; tapping it opens the photo full
+  screen. Photos are resized on the phone and stored inline on the item as a
+  JPEG data URL (about 150–450 KB, plus a ~2 KB thumbnail), so no Firebase
+  Storage bucket or paid plan is needed. Like notes, a photo is cleared the
+  next time the item is added, and photos on items that left the list more
+  than a day ago are pruned so they don't ride along in every sync.
 - **Offline**: Firestore's IndexedDB cache keeps the list readable and
   writable without signal; changes sync when you're back online.
 - **Gestures**: swipe a row right to check it off, left to take it off the
@@ -68,7 +76,7 @@ Item documents look like:
 
 ```
 name, nameKey (lowercase), emoji, storeTags[], status: active|done|suggested,
-checked, note, noteImage, timesAdded, addedBy (uid), createdAt, lastAddedAt, lastDoneAt
+checked, note, noteImage (https URL or data:image/jpeg), noteThumb, timesAdded, addedBy (uid), createdAt, lastAddedAt, lastDoneAt
 ```
 
 Status transitions: `suggested/done → active` (add), `active → done` (move to

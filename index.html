@@ -201,6 +201,25 @@
   .nudge-banner b{font-weight:700;}
   .nudge-banner .link-btn{padding:0;flex:0 0 auto;color:var(--accent-ink);}
   .nudge-cta{margin:0 0 8px;text-align:center;}
+  /* item photos */
+  .photo-field{margin-bottom:14px;}
+  .field-label{font-size:14px;color:var(--ink-soft);margin-bottom:6px;font-weight:600;}
+  .sr-file{position:fixed;left:-1000px;top:0;width:1px;height:1px;opacity:0;}
+  .photo-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .photo-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:78px;padding:12px 6px;border-radius:14px;border:1px solid var(--border);background:var(--card);color:var(--ink);font:inherit;font-size:14px;font-weight:600;text-align:center;cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
+  .photo-tile svg{color:var(--accent-strong);}
+  .photo-tile:active{background:var(--accent-soft);}
+  .photo-busy{display:flex;align-items:center;justify-content:center;min-height:78px;border-radius:14px;border:1px dashed var(--border);color:var(--ink-soft);font-weight:600;}
+  .photo-preview{display:block;width:100%;padding:0;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--card);cursor:zoom-in;}
+  .photo-preview img{display:block;width:100%;max-height:260px;object-fit:cover;}
+  .photo-actions{display:flex;gap:8px;margin-top:8px;}
+  .photo-actions .chip{flex:1;box-sizing:border-box;height:42px;padding:0 10px;line-height:1;text-align:center;display:flex;align-items:center;justify-content:center;gap:6px;font-size:14px;}
+  .photo-actions .chip svg{width:18px;height:18px;}
+  .row-thumb{flex:0 0 auto;width:46px;height:46px;border-radius:10px;object-fit:cover;border:1px solid var(--border);background:var(--border);margin:-2px -2px -2px 0;cursor:zoom-in;}
+  .photo-viewer{position:fixed;inset:0;z-index:90;background:rgba(0,0,0,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top) + 56px) 14px calc(env(safe-area-inset-bottom) + 28px);animation:fadeIn .18s ease-out;}
+  .photo-viewer img{max-width:100%;max-height:calc(100% - 36px);object-fit:contain;border-radius:10px;}
+  .pv-caption{color:#fff;font-weight:600;font-size:16px;margin-top:14px;text-align:center;}
+  .pv-close{position:absolute;top:calc(env(safe-area-inset-top) + 8px);right:10px;color:#fff;font-size:24px;}
   .bottom-bar-quiet{border-top:none;padding-top:4px;padding-bottom:calc(6px + env(safe-area-inset-bottom));}
   .preset-row{display:flex;gap:8px;margin-bottom:12px;}
   .preset-row .chip{flex:1;text-align:center;white-space:normal;line-height:1.25;padding:9px 10px;}
@@ -264,6 +283,8 @@
 <div id="app"></div>
 <!-- iOS has no vibration API, but toggling a switch-style checkbox gives a
      system haptic tick (iOS 17.4+). Clicked programmatically on check-off. -->
+<input type="file" accept="image/*" capture="environment" id="photo-camera-input" class="sr-file" tabindex="-1" aria-hidden="true">
+<input type="file" accept="image/*" id="photo-library-input" class="sr-file" tabindex="-1" aria-hidden="true">
 <input type="checkbox" switch id="haptic-switch" tabindex="-1" aria-hidden="true" style="position:fixed;left:-100px;top:-100px;opacity:0;pointer-events:none;">
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -400,7 +421,9 @@ var ICONS = {
   edit: '<svg class="ic sm" viewBox="0 0 24 24"><path d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16z"/><path d="M13 7l4 4"/></svg>',
   trash: '<svg class="ic sm" viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13"/><path d="M10 11v6M14 11v6"/></svg>',
   share: '<svg class="ic sm" viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11v8a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-8"/></svg>',
-  check: '<svg class="ic sm" viewBox="0 0 24 24" style="stroke-width:2.6"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+  check: '<svg class="ic sm" viewBox="0 0 24 24" style="stroke-width:2.6"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  photos: '<svg class="ic" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l5-4.5 3.5 3 3-2.5L20 17"/></svg>',
+  paste: '<svg class="ic" viewBox="0 0 24 24"><path d="M9 4.5h6v2.5H9z"/><path d="M15 5.5h2.5A1.5 1.5 0 0 1 19 7v12a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19V7a1.5 1.5 0 0 1 1.5-1.5H9"/><path d="M9 12h6M9 15.5h4"/></svg>'
 };
 // The brand mark as inline SVG (same drawing as the icons and launch images).
 function markSvg(size){
@@ -652,6 +675,137 @@ function personName(uid){
   return p ? p.name : null;
 }
 
+/* ---------------- item photos ---------------- */
+// Only ever render https URLs (barcode lookups) or our own inline JPEG/PNG
+// data URLs as <img src>; anything else in the field is ignored.
+function safeImgSrc(s){
+  s = String(s||"");
+  if(/^https:\/\//.test(s)) return s;
+  if(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(s)) return s;
+  return "";
+}
+function itemThumbSrc(it){
+  return safeImgSrc(it.noteThumb) || (/^https:\/\//.test(it.noteImage||"") ? it.noteImage : "");
+}
+// Downscale on the phone before anything is stored: a 12MP photo becomes a
+// ~150-400KB JPEG, well inside Firestore's 1MB document limit.
+function encodeScaled(img, maxEdge, quality, maxLen, square){
+  var w = img.naturalWidth, h = img.naturalHeight;
+  if(!w || !h) throw new Error("decode");
+  var sx = 0, sy = 0, sw = w, sh = h;
+  if(square){ var side = Math.min(w, h); sx = (w-side)/2; sy = (h-side)/2; sw = sh = side; }
+  var edge = maxEdge, q = quality, out = "";
+  for(var attempt=0; attempt<7; attempt++){
+    var scale = Math.min(1, edge / Math.max(sw, sh));
+    var cw = Math.max(1, Math.round(sw*scale)), ch = Math.max(1, Math.round(sh*scale));
+    var c = document.createElement("canvas"); c.width = cw; c.height = ch;
+    var ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, cw, ch); // transparent PNGs -> white, not black
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cw, ch);
+    out = c.toDataURL("image/jpeg", q);
+    if(out.length <= maxLen) return out;
+    edge = Math.round(edge*0.8); q = Math.max(0.5, q-0.06);
+  }
+  if(out.length > maxLen) throw new Error("too_big");
+  return out;
+}
+function blobToPhoto(blob){
+  return new Promise(function(resolve, reject){
+    if(blob.type && !/^image\//.test(blob.type)){ reject(new Error("not_image")); return; }
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function(){
+      try{
+        resolve({full: encodeScaled(img, 1280, 0.74, 650000, false), thumb: encodeScaled(img, 132, 0.7, 24000, true)});
+      }catch(e){ reject(e); }
+      finally{ URL.revokeObjectURL(url); }
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error("decode")); };
+    img.src = url;
+  });
+}
+function addPhotoToItem(id, blob){
+  if(!id || !blob) return;
+  S.photoBusy = id; renderPreservingInput();
+  blobToPhoto(blob).then(function(ph){
+    // Don't wait on the server ack: offline, it never comes until later, and
+    // the local snapshot already shows the photo.
+    store.setItemPhoto(S.spaceCode, id, ph.full, ph.thumb).catch(function(){ showToast("Couldn't save that photo"); });
+    haptic();
+    showToast("Photo added");
+  }).catch(function(err){
+    var why = err && err.message;
+    showToast(why==="not_image" ? "That file isn't a picture" : why==="decode" ? "Couldn't read that picture — try another" : "Couldn't add that photo");
+  }).then(function(){ S.photoBusy = null; renderPreservingInput(); });
+}
+var pendingPhotoItemId = null;
+function onPhotoPicked(e){
+  var input = e.target;
+  var file = input.files && input.files[0];
+  var id = pendingPhotoItemId || (S.sheet && S.sheet.type==="editItem" ? S.sheet.itemId : null);
+  input.value = ""; pendingPhotoItemId = null;
+  if(file && id) addPhotoToItem(id, file);
+}
+["photo-camera-input","photo-library-input"].forEach(function(id){
+  var el = document.getElementById(id);
+  if(el) el.addEventListener("change", onPhotoPicked);
+});
+// The Paste tile: iOS shows its own small "Paste" bubble to confirm.
+function pasteFromClipboard(id){
+  if(!(navigator.clipboard && navigator.clipboard.read)){
+    showToast("Long-press the note box and tap Paste, or press ⌘V");
+    return;
+  }
+  navigator.clipboard.read().then(function(items){
+    for(var i=0;i<items.length;i++){
+      var type = (items[i].types||[]).find(function(t){ return /^image\//.test(t); });
+      if(type) return items[i].getType(type);
+    }
+    throw new Error("no_image");
+  }).then(function(blob){ addPhotoToItem(id, blob); })
+    .catch(function(err){
+      showToast(err && err.message==="no_image" ? "No picture on your clipboard — copy one first" : "Couldn't paste — long-press the note box and tap Paste");
+    });
+}
+// Plain paste anywhere in the item sheet (⌘V, or long-press Paste in the
+// note box) also works when the clipboard holds a picture.
+document.addEventListener("paste", function(e){
+  if(!(S.sheet && S.sheet.type==="editItem")) return;
+  var items = (e.clipboardData && e.clipboardData.items) || [];
+  for(var i=0;i<items.length;i++){
+    if(items[i].kind==="file" && /^image\//.test(items[i].type)){
+      var f = items[i].getAsFile();
+      if(f){ e.preventDefault(); addPhotoToItem(S.sheet.itemId, f); return; }
+    }
+  }
+});
+function photoViewerHtml(){
+  var it = S.items.find(function(x){ return x.id===S.photoViewer; });
+  var src = it ? safeImgSrc(it.noteImage) : "";
+  if(!src){ S.photoViewer = null; return ""; }
+  return '<div class="photo-viewer" id="photo-viewer" role="dialog" aria-label="Photo of '+escapeHtml(it.name)+'">'+
+    '<button class="icon-btn pv-close" id="photo-viewer-close" aria-label="Close">✕</button>'+
+    '<img src="'+escapeHtml(src)+'" alt="'+escapeHtml(it.name)+'" data-keep="viewer-'+escapeHtml(it.id)+'">'+
+    '<div class="pv-caption">'+(itemEmoji(it) ? escapeHtml(itemEmoji(it))+' ' : '')+escapeHtml(it.name)+qtyBadge(it)+'</div></div>';
+}
+function bindPhotoViewer(){
+  var v = document.getElementById("photo-viewer");
+  if(v) v.onclick = function(){ S.photoViewer = null; render(); };
+}
+// Remove inline photos from items that left the list a while ago: they'd
+// otherwise ride along in every sync. (Undo windows are seconds, and the
+// photo would be cleared on the next add anyway.)
+var prunedPhotos = false;
+function pruneStalePhotos(items){
+  if(prunedPhotos || !items.length) return; prunedPhotos = true;
+  var cutoff = Date.now() - 24*3600e3;
+  items.forEach(function(it){
+    if(it.status==="active" || !/^data:/.test(it.noteImage||"")) return;
+    var doneMs = (it.lastDoneAt && it.lastDoneAt.toMillis) ? it.lastDoneAt.toMillis() : 0;
+    if(it.status==="suggested" || doneMs < cutoff) store.setItemNoteImage(S.spaceCode, it.id, null).catch(function(){});
+  });
+}
+
 /* ---------------- barcode scan -> product photo ---------------- */
 // Loaded on demand (only when someone actually scans) rather than up front,
 // since most visits never touch this and the library is a few hundred KB.
@@ -810,7 +964,7 @@ var store = {
       storeTags: storeTags || [],
       status: "active",
       checked: false,
-      note: deleteField(), noteImage: deleteField(), qty: deleteField(),
+      note: deleteField(), noteImage: deleteField(), noteThumb: deleteField(), qty: deleteField(),
       timesAdded: increment(1),
       addedBy: uid,
       createdAt: serverTimestamp(),
@@ -826,7 +980,7 @@ var store = {
   restoreItem: function(code, id, uid){
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), {
       status:"active", checked:false, timesAdded: increment(1), lastAddedAt: serverTimestamp(), addedBy: uid,
-      note: deleteField(), noteImage: deleteField(), qty: deleteField()
+      note: deleteField(), noteImage: deleteField(), noteThumb: deleteField(), qty: deleteField()
     });
   },
   // Undo for "move to history" / "take off list": put items back exactly as
@@ -862,7 +1016,13 @@ var store = {
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), note ? {note: note} : {note: deleteField()});
   },
   setItemNoteImage: function(code, id, url){
-    return updateDoc(doc(dbase,"groceryLists",code,"items",id), url ? {noteImage: url} : {noteImage: deleteField()});
+    return updateDoc(doc(dbase,"groceryLists",code,"items",id), url ? {noteImage: url, noteThumb: deleteField()} : {noteImage: deleteField(), noteThumb: deleteField()});
+  },
+  // Uploaded photos are stored inline as compressed JPEG data URLs (a full
+  // version for the viewer and a tiny square thumbnail for list rows), so
+  // there's no Firebase Storage bucket or paid plan to set up.
+  setItemPhoto: function(code, id, full, thumb){
+    return updateDoc(doc(dbase,"groceryLists",code,"items",id), {noteImage: full, noteThumb: thumb});
   },
   removeFromList: function(code, id){
     return updateDoc(doc(dbase,"groceryLists",code,"items",id), {status:"suggested", checked:false});
@@ -918,7 +1078,7 @@ var S = {
   spaceCode:null, loadingSpace:false, space:{stores:[], people:[]}, items:[],
   view:"list", filterStore:null, searchQuery:"", sheet:null, toast:null, renamingStore:null, renamingMe:false,
   presence:[], offline: (typeof navigator !== "undefined" && navigator.onLine === false), justChecked:null,
-  nudges:[], gesturing:false, renderPending:false, browseQuery:"", editingPhoneFor:null
+  nudges:[], gesturing:false, renderPending:false, browseQuery:"", editingPhoneFor:null, photoBusy:null, photoViewer:null
 };
 function endGesture(){
   S.gesturing = false;
@@ -926,7 +1086,11 @@ function endGesture(){
 }
 window.addEventListener("online", function(){ S.offline=false; renderPreservingInput(); });
 window.addEventListener("offline", function(){ S.offline=true; renderPreservingInput(); });
-document.addEventListener("keydown", function(e){ if(e.key==="Escape" && S.sheet) closeSheet(); });
+document.addEventListener("keydown", function(e){
+  if(e.key!=="Escape") return;
+  if(S.photoViewer){ S.photoViewer = null; render(); }
+  else if(S.sheet) closeSheet();
+});
 
 // Sheets slide in only on the render that first shows them; later re-renders
 // (every Firestore snapshot redraws the sheet) must not replay the animation.
@@ -1128,6 +1292,11 @@ function render(){
   }
   if(S.toast) html += toastHtml();
   if(S.sheet) html += sheetHtml();
+  if(S.photoViewer && S.spaceCode && !S.loadingSpace) html += photoViewerHtml();
+  // Inline photos are big strings; hand the already-decoded <img> back to the
+  // new DOM when its source hasn't changed so nothing flickers on re-render.
+  var keepImgs = {};
+  document.querySelectorAll("img[data-keep]").forEach(function(im){ keepImgs[im.getAttribute("data-keep")] = im; });
   // The barcode scanner streams into #scan-video; a re-render would replace
   // it with a blank element and the preview would go black. Re-adopt the live
   // one instead.
@@ -1137,7 +1306,12 @@ function render(){
     var newVideo = document.getElementById("scan-video");
     if(newVideo) newVideo.replaceWith(liveVideo);
   }
+  document.querySelectorAll("img[data-keep]").forEach(function(im){
+    var old = keepImgs[im.getAttribute("data-keep")];
+    if(old && old !== im && old.getAttribute("src") === im.getAttribute("src")) im.replaceWith(old);
+  });
   bindToast();
+  bindPhotoViewer();
   // Keep the toast clear of the sticky bottom bar (and its Undo tappable).
   var toastEl = document.querySelector(".toast"), barEl = document.querySelector(".bottom-bar");
   if(toastEl && barEl && !S.sheet) toastEl.style.bottom = (barEl.offsetHeight + 12) + "px";
@@ -1236,7 +1410,7 @@ function enterSpace(code){
       store.saveUserProfile(S.meUid, {displayName: mine.name}).catch(function(){});
     }
     unsubs.push(store.subscribeSpace(code, function(sp){ S.space = sp; renderPreservingInput(); }, syncError));
-    unsubs.push(store.subscribeItems(code, function(items){ S.items = items; renderPreservingInput(); }, syncError));
+    unsubs.push(store.subscribeItems(code, function(items){ S.items = items; pruneStalePhotos(items); renderPreservingInput(); }, syncError));
     unsubs.push(store.subscribePresence(code, function(list){ S.presence = list; renderPreservingInput(); }));
     unsubs.push(store.subscribeNudges(code, function(list){ S.nudges = list; pruneOldNudges(list); renderPreservingInput(); }));
     startPresenceHeartbeat();
@@ -1491,6 +1665,8 @@ function itemRowHtml(it, isHistory){
     if(who) html += '<div class="item-meta">💗 '+escapeHtml(who)+' added'+(when ? ' · '+escapeHtml(when) : '')+'</div>';
   }
   html += '</div>';
+  var thumb = isHistory ? "" : itemThumbSrc(it);
+  if(thumb) html += '<img class="row-thumb" src="'+escapeHtml(thumb)+'" alt="Photo of '+escapeHtml(it.name)+'" data-photo="'+escapeHtml(it.id)+'" data-keep="thumb-'+escapeHtml(it.id)+'" loading="lazy">';
   html += '</div>';
   return html;
 }
@@ -1593,6 +1769,14 @@ function bindApp(){
   };
   document.querySelectorAll('[data-action="restore"]').forEach(function(el){
     el.onclick = function(e){ e.stopPropagation(); store.restoreItem(S.spaceCode, el.getAttribute("data-item"), S.meUid).then(function(){ showToast("Added back to your list"); }).catch(function(){ showToast("Couldn't add that item"); }); };
+  });
+  document.querySelectorAll('img[data-photo]').forEach(function(im){
+    im.onclick = function(e){
+      e.stopPropagation();
+      var row = im.closest(".item-row");
+      if(row && row.dataset.swiped){ delete row.dataset.swiped; return; }
+      S.photoViewer = im.getAttribute("data-photo"); render();
+    };
   });
   document.querySelectorAll('.item-row[data-action="edit"]').forEach(function(row){
     row.onclick = function(){
@@ -1793,7 +1977,7 @@ var HELP_TEXT = {
       "Tap the circle next to an item to check it off while you shop, or swipe the row to the right. Swipe left to take it off the list (there's an Undo). Checked items get a green strikethrough and sink to the bottom, but stay visible so you can see what's in your cart.",
       "A progress bar at the bottom tracks how much of the trip is in the cart. Once you're done shopping, tap Move to history to archive everything you checked off — there's an Undo on the toast if you tapped too soon.",
       "Tap an item's name to add a note (quantity, brand, instructions) or tag which stores carry it. Only tag a store if the item is exclusive to it — an untagged item is assumed to be carried everywhere, so it'll keep showing up no matter which store filter is selected. Items your partner added show a little 💗 with their name.",
-      "From that same panel, Try scanning for a photo is a nice bonus when it hits — it looks up a product's barcode and pulls in a picture of exactly that item. It's genuinely hit-or-miss: reliable for national brands and Trader Joe's, spotty for smaller store brands, and it can't find fresh produce or most household items at all, since barcodes don't really exist for those. Treat a miss as normal, not a bug — just add a note instead. Like the note, a found photo clears once the item's checked off.",
+      "From that same panel, add a photo of exactly what you want: Camera takes one now, Library picks one you already have, and Paste drops in a picture you copied from a website or a text (long-press Paste in the note box works too). It shows as a small thumbnail on the list; tap it to see it full screen in the store. Scanning the barcode is still there as a shortcut for packaged brands, hit-or-miss as ever. Like the note, the photo starts fresh the next time the item is added.",
       "The bottom of that panel also shows who added the item and when, so you can tell at a glance whether it's still worth buying or just stale leftover.",
       "If your partner has the list open at the same time, you'll see a banner up top letting you know they're shopping right now.",
       "Quantities: type \"3 lemons\" or \"lemons x3\" to set a count, or use the +/- stepper on the item's panel. Counts show as a ×3 badge and, like notes, reset the next time the item is added.",
@@ -1933,15 +2117,29 @@ function editItemSheetHtml(){
     '</div></div>';
   html += '<div class="field"><label for="item-note-input">Note (brand, size, instructions)</label>'+
     '<textarea id="item-note-input" class="text-input" rows="2" placeholder="e.g. Goya brand, the big can" style="resize:none;">'+escapeHtml(item.note||"")+'</textarea></div>';
-  if(item.noteImage){
-    html += '<div style="position:relative;display:inline-block;margin-bottom:14px;">'+
-      '<img src="'+escapeHtml(item.noteImage)+'" alt="" style="max-width:130px;max-height:130px;border-radius:12px;display:block;border:1px solid var(--border);">'+
-      '<button class="icon-btn" id="remove-note-image-btn" aria-label="Remove photo" style="position:absolute;top:-10px;right:-10px;background:var(--card);border:1px solid var(--border);border-radius:50%;">✕</button>'+
+  var photoSrc = safeImgSrc(item.noteImage);
+  // Not inside .field: the picker tiles are <label>s, and the generic
+  // ".field label" style would restyle them.
+  html += '<div class="photo-field"><div class="field-label">Photo</div>';
+  if(S.photoBusy===item.id){
+    html += '<div class="photo-busy" role="status">Adding photo…</div>';
+  } else if(photoSrc){
+    html += '<button type="button" class="photo-preview" id="open-photo-btn" aria-label="View photo full screen">'+
+      '<img id="note-photo" src="'+escapeHtml(photoSrc)+'" alt="Photo of '+escapeHtml(item.name)+'" data-keep="sheet-'+escapeHtml(item.id)+'"></button>'+
+      '<div class="photo-actions">'+
+        '<label class="chip" for="photo-camera-input" data-photo-pick>'+ICONS.camera+' Retake</label>'+
+        '<label class="chip" for="photo-library-input" data-photo-pick>'+ICONS.photos+' Replace</label>'+
+        '<button type="button" class="chip" id="remove-note-image-btn">Remove</button>'+
       '</div>';
   } else {
-    html += '<button class="btn btn-secondary btn-block" id="scan-photo-btn" style="display:flex;align-items:center;justify-content:center;gap:8px;">'+ICONS.camera+' Try scanning for a photo</button>'+
-      '<p class="helper-text" style="margin:6px 0 14px;">A nice bonus when it works — best odds on national brands and Trader Joe\'s. Fresh produce, household items, and smaller store brands often won\'t be found.</p>';
+    html += '<div class="photo-tiles">'+
+        '<label class="photo-tile" for="photo-camera-input" data-photo-pick>'+ICONS.camera+'Camera</label>'+
+        '<label class="photo-tile" for="photo-library-input" data-photo-pick>'+ICONS.photos+'Library</label>'+
+        '<button type="button" class="photo-tile" id="paste-photo-btn">'+ICONS.paste+'Paste</button>'+
+      '</div>'+
+      '<div class="link-row" style="margin-top:6px;"><button type="button" class="link-btn" id="scan-photo-btn" style="padding:4px;font-size:14px;color:var(--ink-soft);">Or scan the barcode for a product photo</button></div>';
   }
+  html += '</div>';
   html += '<p class="helper-text">Quantity, note and photo clear automatically once this is checked off — nothing carries over next time.</p>';
   if(stores.length){
     html += '<p class="helper-text">Only available at certain stores? Tag it below.</p><div class="store-list">';
@@ -2154,6 +2352,14 @@ function bindSheet(){
     if(removeImgBtn) removeImgBtn.onclick = function(){
       store.setItemNoteImage(S.spaceCode, item.id, null).catch(function(){ showToast("Couldn't remove photo"); });
     };
+    document.querySelectorAll("[data-photo-pick]").forEach(function(lbl){
+      // The <label> opens the picker natively; just remember which item it's for.
+      lbl.addEventListener("click", function(){ flushNoteIfOpen(); pendingPhotoItemId = item.id; });
+    });
+    var pasteBtn = document.getElementById("paste-photo-btn");
+    if(pasteBtn) pasteBtn.onclick = function(){ flushNoteIfOpen(); pasteFromClipboard(item.id); };
+    var openPhoto = document.getElementById("open-photo-btn");
+    if(openPhoto) openPhoto.onclick = function(){ flushNoteIfOpen(); S.photoViewer = item.id; render(); };
     function bumpQty(delta){
       flushNoteIfOpen();
       var next = Math.max(1, Math.min(99, (item.qty > 1 ? item.qty : 1) + delta));
