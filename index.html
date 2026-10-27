@@ -442,12 +442,13 @@ function markSvg(size){
     '<circle cx="46" cy="83" r="6" fill="currentColor"/><circle cx="74" cy="83" r="6" fill="currentColor"/>'+
     '<path d="M60 58.5C52.5 52.5 44.5 48 44.5 41a7.75 7.75 0 0 1 15.5-1.2A7.75 7.75 0 0 1 75.5 41c0 7-8 11.5-15.5 17.5z" fill="currentColor" style="stroke:var(--bg);stroke-width:5;stroke-linejoin:round;"/></svg>';
 }
-function skeletonHtml(note){
+function skeletonHtml(note, escape){
   var html = '<div class="app-top"><div class="app-header"><div class="app-title"><span class="mark">'+markSvg(26)+'</span><span class="title-text">One Cart</span></div></div>'+
     '<div class="tabs"><div class="seg"><button class="tab-btn active">List</button><button class="tab-btn">Browse</button><button class="tab-btn">History</button></div></div></div>';
   html += '<div class="skeleton skeleton-wrap">';
   for(var i=0;i<5;i++) html += '<div class="sk-row"></div>';
   html += '</div><div class="loading-note">'+escapeHtml(note)+'</div>';
+  if(escape) html += '<div class="link-row"><button class="link-btn" id="loading-escape-btn">Enter a different code</button></div>';
   return html;
 }
 function haptic(){
@@ -463,7 +464,7 @@ function swipeHintWanted(){
 }
 function installTipHtml(){
   if(!IS_IOS || IS_STANDALONE) return "";
-  return '<div class="install-tip">'+ICONS.share+'<div><b>Make it an app.</b> Tap Share, then <b>Add to Home Screen</b>. You get full screen, a proper icon, and a faster start.</div></div>';
+  return '<div class="install-tip">'+ICONS.share+'<div><b>Make it an app.</b> Tap Share, then <b>Add to Home Screen</b>. You get full screen, a proper icon, and iOS is far less likely to sign you out.</div></div>';
 }
 
 var DEFAULT_STORES = ["Target", "Whole Foods", "Lunds & Byerlys", "Trader Joe's"];
@@ -919,9 +920,13 @@ var store = {
   ensureSpace: function(code){
     var ref = doc(dbase,"groceryLists",code);
     return getDoc(ref).then(function(snap){
-      if(snap.exists()) return snap.data();
+      var fromCache = !!(snap.metadata && snap.metadata.fromCache);
+      if(snap.exists()) return {data: snap.data(), fromCache: fromCache};
+      // Offline, the cache can't tell "new list" from "not downloaded yet".
+      // Creating one then would overwrite the real list when we reconnect.
+      if(fromCache) throw new Error("unconfirmed");
       var fresh = {stores: DEFAULT_STORES.slice(), people:[], createdAt: new Date().toISOString()};
-      return setDoc(ref, fresh).then(function(){ return store.seedStarterItems(code); }).then(function(){ return fresh; });
+      return setDoc(ref, fresh).then(function(){ return store.seedStarterItems(code); }).then(function(){ return {data: fresh, fromCache: false}; });
     });
   },
   seedStarterItems: function(code){
@@ -1262,7 +1267,12 @@ function syncError(){
   showToast("Couldn't sync — check your connection");
 }
 var unsubs = [];
-function teardownSubs(){ unsubs.forEach(function(u){ try{u();}catch(e){} }); unsubs=[]; stopPresenceHeartbeat(); }
+function teardownSubs(){ unsubs.forEach(function(u){ try{u();}catch(e){} }); unsubs=[]; stopPresenceHeartbeat(); stopEnsure(); }
+var ensureTimer = null, ensureOnline = null;
+function stopEnsure(){
+  clearTimeout(ensureTimer); ensureTimer = null;
+  if(ensureOnline){ window.removeEventListener("online", ensureOnline); ensureOnline = null; }
+}
 
 // Presence: a lightweight per-person heartbeat doc so partners can see when
 // each other has the list open right now. Piggybacks the same interval to
@@ -1297,6 +1307,24 @@ function activePartners(){
 function persistSpace(){ try{ localStorage.setItem("thoc_space", S.spaceCode||""); }catch(e){} }
 function loadLocalSpace(){ try{ return localStorage.getItem("thoc_space")||null; }catch(e){ return null; } }
 function forgetLocalSpace(){ try{ localStorage.removeItem("thoc_space"); }catch(e){} }
+// Your name is kept on the phone as well as online, so opening the app never
+// depends on a network round-trip just to remember who you are.
+function saveLocalName(n){ try{ if(n) localStorage.setItem("thoc_name", n); }catch(e){} }
+function loadLocalName(){ try{ return localStorage.getItem("thoc_name")||null; }catch(e){ return null; } }
+// The list you deliberately left, so the join screen can offer "Back to …".
+function savePrevSpace(c){ try{ if(c) localStorage.setItem("thoc_prev_space", c); }catch(e){} }
+function loadPrevSpace(){ try{ return localStorage.getItem("thoc_prev_space")||null; }catch(e){ return null; } }
+// Ask the browser not to clear this app's storage on its own (Safari 17+,
+// most reliably from the Home Screen app). Best effort, silent either way.
+var persistAsked = false;
+function requestPersistentStorage(){
+  if(persistAsked) return; persistAsked = true;
+  try{
+    if(navigator.storage && navigator.storage.persist){
+      navigator.storage.persisted().then(function(already){ if(!already) return navigator.storage.persist(); }).catch(function(){});
+    }
+  }catch(e){}
+}
 
 /* ---------------- render root ---------------- */
 var app = document.getElementById("app");
@@ -1306,9 +1334,12 @@ function render(){
   if(S.gesturing){ S.renderPending = true; return; }
   var html;
   if(!S.authReady){
-    html = '<div class="shell">'+skeletonHtml("Connecting…")+'</div>';
+    html = '<div class="shell">'+skeletonHtml(S.offline ? "Waiting for a connection…" : "Connecting…")+'</div>';
   } else if(!S.spaceCode || S.loadingSpace){
-    html = '<div class="shell">'+ (S.loadingSpace ? skeletonHtml("Opening your list…") : entryHtml()) +'</div>';
+    var slow = S.loadingSpace && Date.now() - (S.loadingSince||0) > 3000;
+    html = '<div class="shell">'+ (S.loadingSpace
+      ? skeletonHtml(S.offline ? "No connection right now — your list opens as soon as you're back online." : (slow ? "Still opening your list…" : "Opening your list…"), slow)
+      : entryHtml()) +'</div>';
   } else {
     html = '<div class="shell">'+appHtml()+'</div>';
   }
@@ -1339,7 +1370,11 @@ function render(){
   if(toastEl && barEl && !S.sheet) toastEl.style.bottom = (barEl.offsetHeight + 12) + "px";
 
   if(!S.authReady) return;
-  if(!S.spaceCode || S.loadingSpace){ if(!S.loadingSpace) bindEntry(); return; }
+  if(!S.spaceCode || S.loadingSpace){
+    if(!S.loadingSpace) bindEntry();
+    else { var esc = document.getElementById("loading-escape-btn"); if(esc) esc.onclick = function(){ leaveToEntry(); }; }
+    return;
+  }
   bindApp();
   if(S.sheet) bindSheet();
 }
@@ -1375,17 +1410,29 @@ function renderPreservingInput(){
 
 /* ---------------- entry screen (name + list code) ---------------- */
 function entryHtml(){
+  var saved = loadLocalSpace();
+  var prev = loadPrevSpace();
+  var switching = !!(URL_JOIN_CODE && saved && URL_JOIN_CODE!==saved);
+  var lead = switching
+    ? "You've been invited to <b>"+escapeHtml(URL_JOIN_CODE)+"</b>. You're in <b>"+escapeHtml(saved)+"</b> right now."
+    : URL_JOIN_CODE ? "You've been invited to join a list — just add your name below."
+    : "One shared grocery list for the two of you.";
   var html = '<div class="onboard">';
-  html += '<div class="onboard-hero"><div class="mark">'+markSvg(88)+'</div><h1>Two Hearts, One Cart</h1><p>'+(URL_JOIN_CODE ? "You've been invited to join a list — just add your name below." : "One shared grocery list for the two of you.")+'</p></div>';
+  html += '<div class="onboard-hero"><div class="mark">'+markSvg(88)+'</div><h1>Two Hearts, One Cart</h1><p>'+lead+'</p></div>';
   html += '<form id="entry-form">';
   if(!S.me){
     html += '<div class="field"><label for="entry-name">Your name</label><input type="text" id="entry-name" placeholder="e.g. Sam" autocomplete="off" enterkeyhint="next"></div>';
   } else {
     html += '<p class="helper-text" style="margin:0 0 14px;">Joining as <b>'+escapeHtml(S.me)+'</b> · <button class="link-btn" id="entry-change-name" type="button" style="padding:0;">Not you?</button></p>';
   }
-  html += '<div class="field"><label for="entry-code">List code</label><input type="text" id="entry-code" class="mono" placeholder="e.g. OURLIST" autocapitalize="characters" autocomplete="off" enterkeyhint="done" value="'+escapeHtml(URL_JOIN_CODE||"")+'"></div>';
-  html += '<button class="btn btn-primary btn-block" id="entry-go" type="submit">Join list</button>';
+  html += '<div class="field"><label for="entry-code">List code</label><input type="text" id="entry-code" class="mono" placeholder="e.g. OURLIST" autocapitalize="characters" autocomplete="off" enterkeyhint="done" value="'+escapeHtml(URL_JOIN_CODE||saved||"")+'"></div>';
+  html += '<button class="btn btn-primary btn-block" id="entry-go" type="submit">'+(switching ? 'Switch to '+escapeHtml(URL_JOIN_CODE) : (!URL_JOIN_CODE && saved) ? 'Open list' : 'Join list')+'</button>';
   html += '</form>';
+  if(switching){
+    html += '<button class="btn btn-secondary btn-block" id="entry-stay-btn" type="button" style="margin-top:10px;">Stay in '+escapeHtml(saved)+'</button>';
+  } else if(!URL_JOIN_CODE && !saved && prev){
+    html += '<div class="link-row"><button class="link-btn" id="entry-back-btn" type="button">Back to '+escapeHtml(prev)+'</button></div>';
+  }
   html += '<p class="helper-text" style="margin:14px 0 0;text-align:center;">Make up any code and share it with your partner, or <button class="link-btn" id="entry-generate" style="padding:0;">generate one</button>.</p>';
   html += installTipHtml();
   html += '</div>';
@@ -1398,6 +1445,12 @@ function bindEntry(){
   var b;
   if((b=document.getElementById("entry-generate"))) b.onclick = function(){ codeEl.value = genCode(); codeEl.focus(); };
   if((b=document.getElementById("entry-change-name"))) b.onclick = function(){ S.me = null; render(); };
+  if((b=document.getElementById("entry-stay-btn"))) b.onclick = function(){ var s = loadLocalSpace(); if(s) enterSpace(s); };
+  if((b=document.getElementById("entry-back-btn"))) b.onclick = function(){
+    var prev = loadPrevSpace();
+    if(!prev) return;
+    if(S.me) enterSpace(prev); else { codeEl.value = prev; if(nameEl) nameEl.focus(); }
+  };
   var form = document.getElementById("entry-form");
   if(form) form.onsubmit = function(e){
     e.preventDefault();
@@ -1405,42 +1458,90 @@ function bindEntry(){
     var code = normCode(codeEl.value);
     if(!name){ showToast("Enter your name"); return; }
     if(!code){ showToast("Enter a list code"); return; }
-    if(S.me){ enterSpace(code); return; }
-    store.saveUserProfile(S.meUid, {displayName:name}).then(function(){
-      S.me = name; enterSpace(code);
-    }).catch(function(){ showToast("Couldn't save your name — try again"); });
+    if(!S.me){
+      // Remember the name on the phone right away; the online copy syncs
+      // whenever there's a connection.
+      S.me = name; saveLocalName(name);
+      store.saveUserProfile(S.meUid, {displayName:name}).catch(function(){});
+    }
+    enterSpace(code);
   };
 }
 
+// Opening a list never forgets it. The list shows as soon as the phone's
+// cached copy is read; confirming it with the server (and creating a brand
+// new list) happens in the background and simply retries on a bad
+// connection. Only a definite "no access" from the server sends you back to
+// the join screen, and even then the code stays filled in.
 function enterSpace(code){
-  S.spaceCode = code; S.loadingSpace = true; persistSpace();
+  URL_JOIN_CODE = "";
+  S.spaceCode = code; S.loadingSpace = true; S.loadingSince = Date.now(); persistSpace();
   teardownSubs();
   render();
-  store.ensureSpace(code).then(function(space){
-    S.space = space; S.loadingSpace = false;
-    var mine = (space.people||[]).find(function(p){ return p.uid===S.meUid; });
-    if(!mine){
-      // A second device of someone who already saved a phone number inherits
-      // it; otherwise arrayUnion, so two partners joining at the same moment
-      // can't overwrite each other.
-      var twin = (space.people||[]).find(function(p){ return p.phone && sameName(p.name, S.me); });
-      if(twin) store.setPeople(code, (space.people||[]).concat([{uid:S.meUid, name:S.me, phone:twin.phone}])).catch(function(){});
-      else store.joinSpace(code, S.meUid, S.me).catch(function(){});
-    } else if(mine.name && mine.name !== S.me){
-      // Renamed from another device: the shared list wins, this device follows.
-      S.me = mine.name;
-      store.saveUserProfile(S.meUid, {displayName: mine.name}).catch(function(){});
+  setTimeout(function(){ if(S.loadingSpace && S.spaceCode===code) render(); }, 3200);
+  unsubs.push(store.subscribeSpace(code, function(sp){
+    S.space = sp;
+    if(S.loadingSpace){ S.loadingSpace = false; render(); return; }
+    renderPreservingInput();
+  }, syncError));
+  unsubs.push(store.subscribeItems(code, function(items){ S.items = items; pruneStalePhotos(items); renderPreservingInput(); }, syncError));
+  unsubs.push(store.subscribePresence(code, function(list){ S.presence = list; renderPreservingInput(); }));
+  unsubs.push(store.subscribeNudges(code, function(list){ S.nudges = list; pruneOldNudges(list); renderPreservingInput(); }));
+  startPresenceHeartbeat();
+  requestPersistentStorage();
+
+  var delay = 2000;
+  function retryLater(){
+    clearTimeout(ensureTimer);
+    ensureTimer = setTimeout(attempt, delay);
+    delay = Math.min(delay*2, 30000);
+    if(!ensureOnline){
+      ensureOnline = function(){ delay = 2000; clearTimeout(ensureTimer); attempt(); };
+      window.addEventListener("online", ensureOnline);
     }
-    unsubs.push(store.subscribeSpace(code, function(sp){ S.space = sp; renderPreservingInput(); }, syncError));
-    unsubs.push(store.subscribeItems(code, function(items){ S.items = items; pruneStalePhotos(items); renderPreservingInput(); }, syncError));
-    unsubs.push(store.subscribePresence(code, function(list){ S.presence = list; renderPreservingInput(); }));
-    unsubs.push(store.subscribeNudges(code, function(list){ S.nudges = list; pruneOldNudges(list); renderPreservingInput(); }));
-    startPresenceHeartbeat();
-    render();
-  }).catch(function(){
-    S.loadingSpace = false; S.spaceCode = null; forgetLocalSpace();
-    showToast("Couldn't open that list — check the code and try again");
-  });
+  }
+  function attempt(){
+    if(S.spaceCode!==code) return;
+    store.ensureSpace(code).then(function(res){
+      if(S.spaceCode!==code) return;
+      if(S.loadingSpace){ S.space = res.data; S.loadingSpace = false; render(); }
+      if(res.fromCache){ retryLater(); return; }
+      stopEnsure();
+      joinIfNeeded(code, res.data);
+    }).catch(function(err){
+      if(S.spaceCode!==code) return;
+      if(err && err.code==="permission-denied"){ leaveToEntry("Couldn't open that list — you don't have access to it"); return; }
+      retryLater();
+    });
+  }
+  attempt();
+}
+// Runs once the server has confirmed the list: add this device to `people`,
+// or pick up a rename made on another device.
+function joinIfNeeded(code, space){
+  var mine = (space.people||[]).find(function(p){ return p.uid===S.meUid; });
+  if(!mine){
+    // A second device of someone who already saved a phone number inherits
+    // it; otherwise arrayUnion, so two partners joining at the same moment
+    // can't overwrite each other.
+    var twin = (space.people||[]).find(function(p){ return p.phone && sameName(p.name, S.me); });
+    if(twin) store.setPeople(code, (space.people||[]).concat([{uid:S.meUid, name:S.me, phone:twin.phone}])).catch(function(){});
+    else store.joinSpace(code, S.meUid, S.me).catch(function(){});
+  } else if(mine.name && mine.name !== S.me){
+    // Renamed from another device: the shared list wins, this device follows.
+    S.me = mine.name; saveLocalName(mine.name);
+    store.saveUserProfile(S.meUid, {displayName: mine.name}).catch(function(){});
+    renderPreservingInput();
+  }
+}
+// Back to the join screen without forgetting anything: the saved code stays,
+// and the join screen fills it in.
+function leaveToEntry(msg){
+  teardownSubs();
+  S.spaceCode = null; S.loadingSpace = false; S.sheet = null;
+  S.space = {stores:[], people:[]}; S.items = []; S.presence = []; S.nudges = [];
+  render();
+  if(msg) showToast(msg);
 }
 
 /* ---------------- main app ---------------- */
@@ -2118,9 +2219,17 @@ function settingsSheetHtml(){
     '<p class="helper-text" style="margin:6px 0 0;">For lists started before these existed. Safe to tap more than once — never touches anything already on your list.</p>'+
     '</div>';
 
-  html += '<div class="settings-section">'+
-    '<button class="btn btn-secondary btn-block" id="switch-list-btn">Use a different list</button>'+
-    '</div>';
+  if(S.sheet.confirmSwitch){
+    html += '<div class="settings-section">'+
+      '<button class="btn btn-danger btn-block" id="switch-list-btn">Leave '+escapeHtml(S.spaceCode)+'</button>'+
+      '<p class="helper-text" style="margin:6px 0 0;text-align:center;">Nothing is deleted. You can come back anytime with the code '+escapeHtml(S.spaceCode)+'.</p>'+
+      '<div class="link-row"><button class="link-btn" id="cancel-switch-btn">Stay</button></div>'+
+      '</div>';
+  } else {
+    html += '<div class="settings-section">'+
+      '<button class="btn btn-secondary btn-block" id="switch-list-btn">Use a different list</button>'+
+      '</div>';
+  }
 
   html += '</div></div>';
   return html;
@@ -2290,6 +2399,7 @@ function bindSheet(){
         if(mineUids.indexOf(p.uid)===-1) return p;
         var next = {uid:p.uid, name:newName}; if(p.phone) next.phone = p.phone; return next;
       });
+      saveLocalName(newName);
       store.saveUserProfile(uid, {displayName:newName}).then(function(){
         S.me = newName;
         return Promise.all([
@@ -2325,10 +2435,14 @@ function bindSheet(){
       }).catch(function(){ showToast("Couldn't update — try again"); });
     };
     if((b=document.getElementById("switch-list-btn"))) b.onclick = function(){
-      forgetLocalSpace(); teardownSubs();
-      S.spaceCode=null; S.space={stores:[],people:[]}; S.items=[]; S.presence=[]; S.sheet=null; S.filterStore=null; S.view="list";
-      render();
+      // Two taps: the first swaps the button for a confirm.
+      if(!S.sheet.confirmSwitch){ S.sheet.confirmSwitch = true; renderPreservingInput(); return; }
+      savePrevSpace(S.spaceCode);
+      forgetLocalSpace();
+      S.filterStore = null; S.view = "list";
+      leaveToEntry();
     };
+    if((b=document.getElementById("cancel-switch-btn"))) b.onclick = function(){ S.sheet.confirmSwitch = false; renderPreservingInput(); };
   } else if(S.sheet.type==="editItem"){
     var item = S.items.find(function(it){ return it.id===S.sheet.itemId; });
     var noteEl = document.getElementById("item-note-input");
@@ -2484,17 +2598,39 @@ function bindSheet(){
 // No visible sign-in: an anonymous Firebase session runs silently in the
 // background just to satisfy Firestore's "must be signed in" security rules.
 // The only identity the user sees is the name they type on the entry screen.
+var signInRetry = null;
+function trySignIn(){
+  signInAnonymously(auth).catch(function(){
+    // Offline on a first launch: try again the moment the connection returns.
+    if(!signInRetry){
+      signInRetry = function(){ window.removeEventListener("online", signInRetry); signInRetry = null; trySignIn(); };
+      window.addEventListener("online", signInRetry);
+    }
+    render();
+  });
+}
 onAuthStateChanged(auth, function(user){
-  if(!user){
-    signInAnonymously(auth).catch(function(){ showToast("Couldn't connect — check your connection and reload"); });
-    return;
-  }
+  if(!user){ trySignIn(); return; }
   S.authReady = true; S.meUid = user.uid;
+  if(!S.me) S.me = loadLocalName();
+  var last = loadLocalSpace();
+  // Straight back into your list when we know who you are and where you
+  // were, including when an invite link points at the list you're already in.
+  function canResume(){ return !!(S.me && last && (!URL_JOIN_CODE || URL_JOIN_CODE===last)); }
+  var decided = false;
+  function decide(){
+    if(decided || S.spaceCode) return;
+    decided = true;
+    if(canResume()) enterSpace(last); else render();
+  }
+  if(S.me) decide();
   store.getUserProfile(user.uid).then(function(profile){
-    if(profile && profile.displayName) S.me = profile.displayName;
-    var last = loadLocalSpace();
-    if(!URL_JOIN_CODE && last && S.me){ enterSpace(last); } else { render(); }
-  }).catch(function(){ render(); });
+    if(profile && profile.displayName && !S.me){ S.me = profile.displayName; saveLocalName(S.me); }
+    if(!decided) decide();
+    else if(!S.spaceCode){ if(canResume()) enterSpace(last); else render(); }
+  }).catch(function(){ decide(); });
+  // Never sit on the loading screen waiting for the profile.
+  setTimeout(decide, 2500);
 });
 syncThemeColor();
 render();

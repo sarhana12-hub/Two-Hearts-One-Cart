@@ -42,6 +42,15 @@ PWA, synced in real time through Firebase Firestore, hosted on GitHub Pages.
   **Keep this photo** under a photo to make it permanent: it survives
   purchase and re-adding, shows in History with a 📌, and is never pruned.
   Removing the photo turns the switch off.
+- **Staying signed in**: the phone remembers your name and list code, so the
+  app reopens straight into your list even with no signal. A failed load
+  never forgets the list: it shows the cached copy and retries in the
+  background, and only a definite "no access" from the server returns you to
+  the join screen, with the code still filled in. An invite link to the list
+  you're already in opens it; one for a different list asks first. Leaving a
+  list takes a confirm, and the join screen offers "Back to …". The app also
+  asks the browser to keep its storage, and the Home Screen app is exempt
+  from Safari's 7-day storage clearing.
 - **Offline**: Firestore's IndexedDB cache keeps the list readable and
   writable without signal; changes sync when you're back online.
 - **Gestures**: swipe a row right to check it off, left to take it off the
